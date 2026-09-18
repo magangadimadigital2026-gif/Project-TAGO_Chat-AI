@@ -1,0 +1,28 @@
+{
+  "name": "foodmate-self-hosted-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/src/index.js",
+    "db:push": "drizzle-kit push",
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.6",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.44.7",
+    "hono": "^4.9.7",
+    "jose": "^6.1.0",
+    "postgres": "^3.4.7",
+    "zod": "^4.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.3",
+    "drizzle-kit": "^0.31.8",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

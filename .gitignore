@@ -1,0 +1,16 @@
+# Semua node_modules di manapun levelnya
+**/node_modules/
+
+# Build output
+**/dist/
+**/.next/
+**/.expo/
+
+# Environment & secrets - JANGAN PERNAH ke-commit
+**/.env
+**/.env.local
+**/.env.selfhosted
+!**/.env.example
+!**/.env.selfhosted.example
+
+.DS_Store

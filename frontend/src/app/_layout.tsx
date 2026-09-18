@@ -1,0 +1,24 @@
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from "expo-router";
+import { useColorScheme } from "react-native";
+
+export default function RootLayout() {
+  const colorScheme = useColorScheme();
+
+  return (
+    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+      <Stack>
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+
+        <Stack.Screen name="login" options={{ headerShown: false }} />
+
+        <Stack.Screen name="register" options={{ headerShown: false }} />
+
+        <Stack.Screen name="home" options={{ headerShown: false }} />
+
+        <Stack.Screen name="chat" options={{ headerShown: false }} />
+
+        <Stack.Screen name="history" options={{ headerShown: false }} />
+      </Stack>
+    </ThemeProvider>
+  );
+}
