@@ -1,4 +1,4 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useState } from "react";
@@ -12,44 +12,36 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View,
   useWindowDimensions,
+  View,
 } from "react-native";
-
-import { API_URL } from "@/constants/api";
+import { API_URL } from "../constants/api";
 
 export default function LoginScreen() {
   const { width } = useWindowDimensions();
 
-  const isSmallScreen = width < 400;
-  const isDesktop = width >= 768;
+  const isSmallScreen = width < 380;
+  const isDesktop = width > 700;
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async () => {
-    if (!email.trim()) {
-      Alert.alert("Email Kosong", "Silakan masukkan email.");
-      return;
-    }
-
-    if (!password) {
-      Alert.alert("Password Kosong", "Silakan masukkan password.");
+    if (!email || !password) {
+      Alert.alert("Peringatan", "Email dan password wajib diisi.");
       return;
     }
 
     try {
-      setIsLoading(true);
-
       const response = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email: email.trim(),
-          password: password,
+          email,
+          password,
         }),
       });
 
@@ -57,10 +49,10 @@ export default function LoginScreen() {
 
       console.log("Data login:", result);
 
-      if (!response.ok || !result.success) {
+      if (!response.ok) {
         Alert.alert(
           "Login Gagal",
-          result.message || "Email atau password salah.",
+          result.message || "Email atau password salah."
         );
         return;
       }
@@ -69,28 +61,26 @@ export default function LoginScreen() {
       const name = result.data?.user?.name;
 
       if (!token) {
-        Alert.alert("Login Gagal", "Token login tidak ditemukan.");
+        Alert.alert("Login Gagal", "Token tidak ditemukan.");
         return;
       }
 
-      // Simpan token login
       await AsyncStorage.setItem("token", token);
 
-      // Simpan nama user
       if (name) {
         await AsyncStorage.setItem("userName", name);
       }
 
-      console.log("Token tersimpan");
-      console.log("Nama user tersimpan:", name);
+      console.log("Token tersimpan:", token);
 
       router.replace("/home");
     } catch (error) {
-      console.log("Error login:", error);
+      console.error("Error login:", error);
 
-      Alert.alert("Login Gagal", "Tidak dapat terhubung ke server.");
-    } finally {
-      setIsLoading(false);
+      Alert.alert(
+        "Koneksi Gagal",
+        "Tidak dapat terhubung ke server."
+      );
     }
   };
 
@@ -100,15 +90,11 @@ export default function LoginScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          isDesktop && styles.desktopContent,
-        ]}
-        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContainer}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        {/* COVER */}
-
+        {/* HEADER */}
         <View
           style={[
             styles.cover,
@@ -116,51 +102,54 @@ export default function LoginScreen() {
             isDesktop && styles.coverDesktop,
           ]}
         >
-          <View style={styles.brandCircle}>
-            <Ionicons name="restaurant" size={28} color="#023E8A" />
-          </View>
-
-          <Text style={styles.brand}>TAGO</Text>
-
-          <Text style={styles.coverTitle}>Selamat Datang!</Text>
-
-          <Text style={styles.coverSubtitle}>
-            Login dan temukan rekomendasi makananmu
-          </Text>
-
+          {/* LOGO TAGO */}
           <Image
-            source={require("../../assets/images/burger.jpg")}
-            style={styles.foodImage}
-            resizeMode="cover"
+            source={require("../../assets/images/logo-tago.webp")}
+            style={styles.logo}
+            resizeMode="contain"
           />
+
+          {/* BURGER */}
+          <View
+            style={[
+              styles.foodFrame,
+              isSmallScreen && styles.foodFrameSmall,
+              isDesktop && styles.foodFrameDesktop,
+            ]}
+          >
+            <Image
+              source={require("../../assets/images/burger.jpg")}
+              style={styles.foodImage}
+              resizeMode="cover"
+            />
+          </View>
         </View>
 
-        {/* LOGIN CARD */}
-
+        {/* FORM */}
         <View
           style={[
-            styles.card,
-            isSmallScreen && styles.cardSmall,
-            isDesktop && styles.cardDesktop,
+            styles.formContainer,
+            isDesktop && styles.formContainerDesktop,
           ]}
         >
-          <Text style={styles.title}>Login</Text>
+          <Text style={styles.title}>Selamat Datang!</Text>
 
-          <Text style={styles.description}>
-            Masuk untuk melanjutkan ke Food AI
+          <Text style={styles.subtitle}>
+            Silakan login untuk melanjutkan
           </Text>
 
           {/* EMAIL */}
-
-          <Text style={styles.label}>Email</Text>
-
           <View style={styles.inputContainer}>
-            <Ionicons name="mail-outline" size={20} color="#777777" />
+            <Ionicons
+              name="mail-outline"
+              size={21}
+              color="#6B7280"
+            />
 
             <TextInput
               style={styles.input}
-              placeholder="Masukkan email"
-              placeholderTextColor="#999999"
+              placeholder="Email"
+              placeholderTextColor="#9CA3AF"
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -169,49 +158,67 @@ export default function LoginScreen() {
           </View>
 
           {/* PASSWORD */}
-
-          <Text style={styles.label}>Password</Text>
-
           <View style={styles.inputContainer}>
-            <Ionicons name="lock-closed-outline" size={20} color="#777777" />
+            <Ionicons
+              name="lock-closed-outline"
+              size={21}
+              color="#6B7280"
+            />
 
             <TextInput
               style={styles.input}
-              placeholder="Masukkan password"
-              placeholderTextColor="#999999"
+              placeholder="Password"
+              placeholderTextColor="#9CA3AF"
               value={password}
               onChangeText={setPassword}
-              secureTextEntry
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
             />
+
+            <Pressable
+              onPress={() => setShowPassword(!showPassword)}
+            >
+              <Ionicons
+                name={
+                  showPassword
+                    ? "eye-outline"
+                    : "eye-off-outline"
+                }
+                size={21}
+                color="#6B7280"
+              />
+            </Pressable>
           </View>
 
           {/* LOGIN BUTTON */}
-
           <Pressable
-            style={({ pressed }) => [
-              styles.loginButton,
-              pressed && styles.buttonPressed,
-            ]}
+            style={styles.button}
             onPress={handleLogin}
-            disabled={isLoading}
           >
-            <Text style={styles.loginButtonText}>
-              {isLoading ? "Memproses..." : "Login"}
-            </Text>
+            <Text style={styles.buttonText}>Login</Text>
           </Pressable>
 
           {/* REGISTER */}
-
           <View style={styles.registerContainer}>
-            <Text style={styles.registerText}>Belum punya akun?</Text>
+            <Text style={styles.registerText}>
+              Belum punya akun?
+            </Text>
 
-            <Pressable onPress={() => router.push("/register")}>
-              <Text style={styles.registerLink}>Daftar</Text>
+            <Pressable
+              onPress={() => router.push("/register")}
+            >
+              <Text style={styles.registerLink}>
+                {" "}
+                Daftar
+              </Text>
             </Pressable>
           </View>
         </View>
 
-        <Text style={styles.footer}>Powered by TAGO</Text>
+        {/* FOOTER */}
+        <Text style={styles.footer}>
+          Powered by TAGO
+        </Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -220,193 +227,175 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#E3E9F1",
+    backgroundColor: "#FFFFFF",
   },
 
-  scrollContent: {
+  scrollContainer: {
+    flexGrow: 1,
     paddingBottom: 30,
   },
 
-  desktopContent: {
-    width: "100%",
-    maxWidth: 600,
-    alignSelf: "center",
-  },
-
-  /* COVER */
+  // =========================
+  // HEADER
+  // =========================
 
   cover: {
-    height: 345,
+    height: 270,
     backgroundColor: "#023E8A",
-    paddingTop: 55,
-    paddingHorizontal: 25,
     position: "relative",
-    overflow: "hidden",
+    justifyContent: "center",
+    alignItems: "center",
   },
 
   coverSmall: {
-    height: 320,
+    height: 240,
   },
 
   coverDesktop: {
-    height: 370,
+    height: 320,
   },
 
-  brandCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: "#FFFFFF",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-
-  brand: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "900",
-    letterSpacing: 1,
+  logo: {
+    width: 85,
+    height: 50,
     marginBottom: 20,
   },
 
-  coverTitle: {
-    color: "#FFFFFF",
-    fontSize: 28,
-    fontWeight: "800",
-    marginBottom: 7,
-  },
-
-  coverSubtitle: {
-    color: "#DCE8F4",
-    fontSize: 14,
-    maxWidth: 230,
-    lineHeight: 20,
-  },
-
-  foodImage: {
+  // Lingkaran putih untuk burger
+  foodFrame: {
     position: "absolute",
     width: 145,
     height: 145,
     borderRadius: 73,
     right: 18,
     bottom: 28,
-    borderWidth: 6,
-    borderColor: "#FFFFFF",
-  },
-
-  /* CARD */
-
-  card: {
-    width: "91%",
-    maxWidth: 440,
-    alignSelf: "center",
     backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    padding: 24,
-    marginTop: -42,
+    justifyContent: "center",
+    alignItems: "center",
   },
 
-  cardSmall: {
-    width: "92%",
-    padding: 21,
-    borderRadius: 21,
+  foodFrameSmall: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    right: 12,
+    bottom: 25,
   },
 
-  cardDesktop: {
-    maxWidth: 470,
-    marginTop: -48,
+  foodFrameDesktop: {
+    width: 165,
+    height: 165,
+    borderRadius: 83,
+    right: 25,
+    bottom: 30,
+  },
+
+  foodImage: {
+    width: "86%",
+    height: "86%",
+    borderRadius: 100,
+  },
+
+  // =========================
+  // FORM
+  // =========================
+
+  formContainer: {
+    paddingHorizontal: 28,
+    paddingTop: 35,
+  },
+
+  formContainerDesktop: {
+    width: 500,
+    alignSelf: "center",
   },
 
   title: {
-    fontSize: 26,
-    fontWeight: "800",
-    color: "#111827",
-    marginBottom: 6,
-  },
-
-  description: {
-    fontSize: 14,
-    color: "#777777",
-    marginBottom: 25,
-  },
-
-  /* INPUT */
-
-  label: {
-    fontSize: 14,
+    fontSize: 28,
     fontWeight: "700",
-    color: "#333333",
+    color: "#023E8A",
+    textAlign: "center",
     marginBottom: 8,
   },
+
+  subtitle: {
+    fontSize: 15,
+    color: "#6B7280",
+    textAlign: "center",
+    marginBottom: 28,
+  },
+
+  // =========================
+  // INPUT
+  // =========================
 
   inputContainer: {
     height: 52,
     borderWidth: 1,
-    borderColor: "#D7DCE2",
-    borderRadius: 13,
+    borderColor: "#D1D5DB",
+    borderRadius: 12,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 15,
-    marginBottom: 18,
-    backgroundColor: "#FAFAFA",
+    marginBottom: 16,
+    backgroundColor: "#FFFFFF",
   },
 
   input: {
     flex: 1,
+    fontSize: 15,
+    color: "#111827",
     marginLeft: 10,
-    fontSize: 14,
-    color: "#222222",
   },
 
-  /* BUTTON */
+  // =========================
+  // BUTTON
+  // =========================
 
-  loginButton: {
+  button: {
     height: 52,
     backgroundColor: "#023E8A",
-    borderRadius: 14,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 5,
+    marginTop: 8,
   },
 
-  loginButtonText: {
+  buttonText: {
     color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "800",
+    fontSize: 16,
+    fontWeight: "700",
   },
 
-  buttonPressed: {
-    opacity: 0.75,
-  },
-
-  /* REGISTER */
+  // =========================
+  // REGISTER
+  // =========================
 
   registerContainer: {
     flexDirection: "row",
     justifyContent: "center",
-    alignItems: "center",
     marginTop: 22,
-    gap: 5,
   },
 
   registerText: {
-    fontSize: 13,
-    color: "#777777",
+    color: "#6B7280",
+    fontSize: 14,
   },
 
   registerLink: {
-    fontSize: 13,
     color: "#023E8A",
-    fontWeight: "800",
+    fontSize: 14,
+    fontWeight: "700",
   },
 
-  /* FOOTER */
+  // =========================
+  // FOOTER
+  // =========================
 
   footer: {
     textAlign: "center",
-    color: "#888888",
+    color: "#9CA3AF",
     fontSize: 12,
-    marginTop: 22,
+    marginTop: 35,
   },
 });
