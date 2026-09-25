@@ -1,4 +1,4 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
+﻿import Ionicons from "@expo/vector-icons/Ionicons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useState } from "react";
@@ -57,7 +57,7 @@ export default function LoginScreen() {
 
       console.log("Data login:", result);
 
-      if (!response.ok || !result.success) {
+      if (!response.ok || !result.token) {
         Alert.alert(
           "Login Gagal",
           result.message || "Email atau password salah.",
@@ -65,8 +65,8 @@ export default function LoginScreen() {
         return;
       }
 
-      const token = result.data?.token;
-      const name = result.data?.user?.name;
+      const token = result.token;
+      const name = result.user?.name;
 
       if (!token) {
         Alert.alert("Login Gagal", "Token login tidak ditemukan.");

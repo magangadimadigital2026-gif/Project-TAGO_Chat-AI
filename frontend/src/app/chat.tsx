@@ -1,4 +1,4 @@
-import { API_URL } from "@/constants/api";
+﻿import { API_URL } from "@/constants/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
@@ -27,7 +27,7 @@ export default function ChatScreen() {
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
-      text: "Halo! 👋 Mau makan apa hari ini?",
+      text: "Halo! ðŸ‘‹ Mau makan apa hari ini?",
       sender: "ai",
     },
   ]);
@@ -146,13 +146,11 @@ export default function ChatScreen() {
 
       console.log("Hasil Chat AI:", JSON.stringify(result, null, 2));
 
-      if (result.success) {
-        setConversationId(result.data.conversationId);
-
+      if (result.answer) {
         setMessages((prevMessages) => [
           ...prevMessages,
           {
-            text: result.data.aiReply,
+            text: result.answer,
             sender: "ai",
           },
         ]);
@@ -183,7 +181,7 @@ export default function ChatScreen() {
   const handleNewChat = () => {
     setMessages([
       {
-        text: "Halo! 👋 Mau makan apa hari ini?",
+        text: "Halo! ðŸ‘‹ Mau makan apa hari ini?",
         sender: "ai",
       },
     ]);
@@ -204,7 +202,7 @@ export default function ChatScreen() {
           style={styles.backButton}
           onPress={() => router.replace("/home")}
         >
-          <Text style={styles.backText}>‹</Text>
+          <Text style={styles.backText}>â€¹</Text>
         </Pressable>
 
         <Text style={styles.title}>Food AI</Text>
@@ -418,3 +416,9 @@ const styles = StyleSheet.create({
     color: "#777",
   },
 });
+
+
+
+
+
+
