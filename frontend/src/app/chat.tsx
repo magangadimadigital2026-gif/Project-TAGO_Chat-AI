@@ -1,4 +1,5 @@
 ﻿import { API_URL } from "@/constants/api";
+import * as Location from "expo-location";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
@@ -27,7 +28,7 @@ export default function ChatScreen() {
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
-      text: "Halo! ðŸ‘‹ Mau makan apa hari ini?",
+      text: "Halo! 👋 Mau makan apa hari ini?",
       sender: "ai",
     },
   ]);
@@ -37,6 +38,8 @@ export default function ChatScreen() {
   );
 
   const [isLoading, setIsLoading] = useState(false);
+
+  const [quickReplies, setQuickReplies] = useState<string[]>([]);
 
   const [isLoadingConversation, setIsLoadingConversation] = useState(false);
 
@@ -115,6 +118,7 @@ export default function ChatScreen() {
 
     setMessage("");
     setIsLoading(true);
+    setQuickReplies([]);
 
     try {
       const token = await AsyncStorage.getItem("token");
@@ -126,6 +130,24 @@ export default function ChatScreen() {
         return;
       }
 
+      let locationPayload = {};
+
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+
+        if (status === "granted") {
+          const position = await Location.getCurrentPositionAsync({});
+
+          locationPayload = {
+            lat: position.coords.latitude,
+            lon: position.coords.longitude,
+          };
+          console.log("LOKASI DIDAPAT:", JSON.stringify(locationPayload));
+        }
+      } catch (locationError) {
+        console.log("Lokasi tidak tersedia:", locationError);
+      }
+
       const response = await fetch(`${API_URL}/api/chat`, {
         method: "POST",
         headers: {
@@ -134,11 +156,7 @@ export default function ChatScreen() {
         },
         body: JSON.stringify({
           message: userMessage,
-          ...(conversationId !== null
-            ? {
-                conversationId: conversationId,
-              }
-            : {}),
+          ...locationPayload,
         }),
       });
 
@@ -154,6 +172,10 @@ export default function ChatScreen() {
             sender: "ai",
           },
         ]);
+
+        setQuickReplies(
+          Array.isArray(result.quick_replies) ? result.quick_replies : [],
+        );
       } else {
         setMessages((prevMessages) => [
           ...prevMessages,
@@ -181,7 +203,7 @@ export default function ChatScreen() {
   const handleNewChat = () => {
     setMessages([
       {
-        text: "Halo! ðŸ‘‹ Mau makan apa hari ini?",
+        text: "Halo! 👋 Mau makan apa hari ini?",
         sender: "ai",
       },
     ]);
@@ -202,10 +224,10 @@ export default function ChatScreen() {
           style={styles.backButton}
           onPress={() => router.replace("/home")}
         >
-          <Text style={styles.backText}>â€¹</Text>
+          <Text style={styles.backText}>‹</Text>
         </Pressable>
 
-        <Text style={styles.title}>Food AI</Text>
+        <Text style={styles.title}>TAGO AI</Text>
 
         <Pressable style={styles.newChatButton} onPress={handleNewChat}>
           <Text style={styles.newChatText}>Chat Baru</Text>
@@ -250,6 +272,23 @@ export default function ChatScreen() {
               </View>
             )}
           </ScrollView>
+
+          {quickReplies.length > 0 && !isLoading && (
+            <View style={styles.quickReplyContainer}>
+              {quickReplies.map((reply, index) => (
+                <Pressable
+                  key={index}
+                  style={styles.quickReplyButton}
+                  onPress={() => {
+                    setMessage(reply);
+                    setQuickReplies([]);
+                  }}
+                >
+                  <Text style={styles.quickReplyText}>{reply}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
 
           <View style={styles.inputArea}>
             <TextInput
@@ -415,10 +454,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#777",
   },
+
+  quickReplyContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    paddingBottom: 10,
+  },
+
+  quickReplyButton: {
+    borderWidth: 1,
+    borderColor: "#023E8A",
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+
+  quickReplyText: {
+    color: "#023E8A",
+    fontSize: 13,
+    fontWeight: "600",
+  },
 });
-
-
-
-
-
-
