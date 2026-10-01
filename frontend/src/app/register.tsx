@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
@@ -14,19 +14,46 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { API_URL } from "@/constants/api";
+import { API_URL } from "../constants/api";
 
 export default function RegisterScreen() {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
-  const isSmallScreen = width < 400;
-  const isDesktop = width >= 768;
+  // ==================================
+  // RESPONSIVE
+  // ==================================
+
+  const isMobile = width < 600;
+  const isTablet = width >= 600 && width < 1000;
+  const isDesktop = width >= 1000;
+
+  const headerHeight = isMobile
+    ? 380
+    : isTablet
+      ? 450
+      : Math.min(Math.max(width * 0.30, 400), 540);
+
+  const cardWidth = isMobile
+    ? width - 44
+    : isTablet
+      ? Math.min(width - 80, 700)
+      : Math.min(width - 160, 850);
+
+  // ==================================
+  // STATE
+  // ==================================
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [konfirmasiPassword, setKonfirmasiPassword] = useState("");
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [showKonfirmasiPassword, setShowKonfirmasiPassword] =
+    useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
 
@@ -36,27 +63,27 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     if (name.trim() === "") {
-      Alert.alert("Perhatian", "Nama wajib diisi");
+      Alert.alert("Perhatian", "Nama wajib diisi.");
       return;
     }
 
     if (email.trim() === "") {
-      Alert.alert("Perhatian", "Email wajib diisi");
+      Alert.alert("Perhatian", "Email wajib diisi.");
       return;
     }
 
     if (password.trim() === "") {
-      Alert.alert("Perhatian", "Password wajib diisi");
+      Alert.alert("Perhatian", "Password wajib diisi.");
       return;
     }
 
     if (konfirmasiPassword.trim() === "") {
-      Alert.alert("Perhatian", "Konfirmasi password wajib diisi");
+      Alert.alert("Perhatian", "Konfirmasi password wajib diisi.");
       return;
     }
 
     if (password !== konfirmasiPassword) {
-      Alert.alert("Perhatian", "Konfirmasi password tidak sama");
+      Alert.alert("Perhatian", "Konfirmasi password tidak sama.");
       return;
     }
 
@@ -95,16 +122,26 @@ export default function RegisterScreen() {
           ],
         );
       } else {
-        Alert.alert("Registrasi Gagal", result.message || "Registrasi gagal.");
+        Alert.alert(
+          "Registrasi Gagal",
+          result.message || "Registrasi gagal.",
+        );
       }
     } catch (error) {
       console.log("Error register:", error);
 
-      Alert.alert("Tidak dapat terhubung", "Tidak dapat terhubung ke server.");
+      Alert.alert(
+        "Tidak dapat terhubung",
+        "Tidak dapat terhubung ke server.",
+      );
     } finally {
       setIsLoading(false);
     }
   };
+
+  // ==================================
+  // TAMPILAN
+  // ==================================
 
   return (
     <KeyboardAvoidingView
@@ -112,108 +149,200 @@ export default function RegisterScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
-        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.scrollContainer,
+          { minHeight: height },
+        ]}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
         {/* ==================================
-            COVER / HEADER
+            HEADER
         ================================== */}
 
         <View
           style={[
-            styles.cover,
-            isSmallScreen && styles.coverSmall,
-            isDesktop && styles.coverDesktop,
+            styles.header,
+            {
+              height: headerHeight,
+            },
           ]}
         >
-          {/* Dekorasi */}
-          <View style={styles.coverCircleOne} />
-          <View style={styles.coverCircleTwo} />
-
           {/* ==================================
-              LOGO
-          ================================== */}
-
-          <View style={styles.brand}>
-            <View
-              style={[
-                styles.logoCircle,
-                isSmallScreen && styles.logoCircleSmall,
-              ]}
-            >
-              <Ionicons name="restaurant-outline" size={32} color="#023E8A" />
-            </View>
-
-            <View>
-              <Text
-                style={[styles.logoText, isSmallScreen && styles.logoTextSmall]}
-              >
-                Food
-              </Text>
-
-              <Text style={styles.logoSubtitle}>Food recommendation</Text>
-            </View>
-          </View>
-
-          {/* ==================================
-              COVER TEXT
-          ================================== */}
-
-          <View style={styles.coverTextContainer}>
-            <Text
-              style={[
-                styles.coverTitle,
-                isSmallScreen && styles.coverTitleSmall,
-                isDesktop && styles.coverTitleDesktop,
-              ]}
-            >
-              Yuk buat akunmu!
-            </Text>
-
-            <Text
-              style={[
-                styles.coverTitle,
-                isSmallScreen && styles.coverTitleSmall,
-                isDesktop && styles.coverTitleDesktop,
-              ]}
-            >
-              dan temukan makanan favoritmu
-            </Text>
-          </View>
-
-          <Text
-            style={[
-              styles.coverDescription,
-              isDesktop && styles.coverDescriptionDesktop,
-            ]}
-          >
-            Daftar sekarang dan dapatkan
-            {"\n"}
-            rekomendasi makanan yang sesuai.
-          </Text>
-
-          {/* ==================================
-              GAMBAR MAKANAN
+              LOGO TAGO
           ================================== */}
 
           <View
             style={[
-              styles.foodImageWrapper,
-              isSmallScreen && styles.foodImageWrapperSmall,
-              isDesktop && styles.foodImageWrapperDesktop,
+              styles.logoSection,
+              {
+                left: isMobile
+                  ? 24
+                  : isTablet
+                    ? 45
+                    : 55,
+
+                top:
+                  insets.top +
+                  (isMobile ? 5 : 10),
+              },
             ]}
           >
             <Image
-              source={require("../../assets/images/food.jpg")}
-              style={styles.foodImage}
-              resizeMode="cover"
+              source={require("../../assets/images/logo-tago.webp")}
+              style={[
+                styles.logo,
+                {
+                  width: isMobile
+                    ? 72
+                    : isTablet
+                      ? 90
+                      : 105,
+
+                  height: isMobile
+                    ? 72
+                    : isTablet
+                      ? 90
+                      : 105,
+                },
+              ]}
+              resizeMode="contain"
             />
+
+            <Text
+              style={[
+                styles.tagoText,
+                {
+                  fontSize: isMobile
+                    ? 23
+                    : isTablet
+                      ? 27
+                      : 30,
+                },
+              ]}
+            >
+              TAGO
+            </Text>
           </View>
 
-          {/* Dekorasi garis */}
-          <View style={styles.decorLineOne} />
-          <View style={styles.decorLineTwo} />
+          {/* ==================================
+              GAMBAR ORANG
+          ================================== */}
+
+          <Image
+            source={require("../../assets/images/orang.png")}
+            style={[
+              styles.personImage,
+              {
+                width: isMobile
+                  ? width * 0.44
+                  : isTablet
+                    ? width * 0.37
+                    : width * 0.32,
+
+                height: isMobile
+                  ? headerHeight * 0.55
+                  : isTablet
+                    ? headerHeight * 0.62
+                    : headerHeight * 0.70,
+
+                right: isMobile
+                  ? -8
+                  : isTablet
+                    ? 20
+                    : 50,
+
+                bottom: isMobile ? 5 : 8,
+              },
+            ]}
+            resizeMode="contain"
+          />
+
+          {/* ==================================
+              HEADER TEXT
+          ================================== */}
+
+          <View
+            style={[
+              styles.headerText,
+              {
+                left: isMobile
+                  ? 24
+                  : isTablet
+                    ? 45
+                    : 55,
+
+                bottom: isMobile
+                  ? 30
+                  : isTablet
+                    ? 45
+                    : 55,
+
+                width: isMobile
+                  ? width * 0.67
+                  : isTablet
+                    ? width * 0.55
+                    : width * 0.45,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.welcomeTitle,
+                {
+                  fontSize: isMobile
+                    ? 30
+                    : isTablet
+                      ? 40
+                      : 48,
+                },
+              ]}
+            >
+              Yuk Buat Akun!
+            </Text>
+
+            <Text
+              style={[
+                styles.welcomeSubtitle,
+                {
+                  fontSize: isMobile
+                    ? 16
+                    : isTablet
+                      ? 19
+                      : 21,
+
+                  lineHeight: isMobile
+                    ? 22
+                    : isTablet
+                      ? 27
+                      : 29,
+                },
+              ]}
+            >
+              Daftar dan temukan rekomendasi
+            </Text>
+
+            <Text
+              style={[
+                styles.welcomeSubtitle,
+                {
+                  fontSize: isMobile
+                    ? 16
+                    : isTablet
+                      ? 19
+                      : 21,
+
+                  lineHeight: isMobile
+                    ? 22
+                    : isTablet
+                      ? 27
+                      : 29,
+                },
+              ]}
+            >
+              makananmu
+            </Text>
+          </View>
         </View>
 
         {/* ==================================
@@ -222,36 +351,113 @@ export default function RegisterScreen() {
 
         <View
           style={[
-            styles.card,
-            isSmallScreen && styles.cardSmall,
-            isDesktop && styles.cardDesktop,
+            styles.registerCard,
+            {
+              width: cardWidth,
+
+              marginTop: isMobile
+                ? 14
+                : isTablet
+                  ? 20
+                  : 28,
+
+              paddingHorizontal: isMobile
+                ? 24
+                : isTablet
+                  ? 35
+                  : 45,
+
+              paddingVertical: isMobile
+                ? 25
+                : isTablet
+                  ? 32
+                  : 40,
+            },
           ]}
         >
-          <Text style={styles.title}>Buat Akun</Text>
+          {/* ==================================
+              TITLE
+          ================================== */}
 
-          <Text style={styles.subtitle}>
-            Daftar untuk mulai menggunakan
-            {"\n"}
-            Food dan mendapatkan rekomendasi.
+          <Text
+            style={[
+              styles.registerTitle,
+              {
+                fontSize: isMobile
+                  ? 35
+                  : isTablet
+                    ? 40
+                    : 44,
+              },
+            ]}
+          >
+            Buat Akun
+          </Text>
+
+          <Text
+            style={[
+              styles.registerSubtitle,
+              {
+                fontSize: isMobile
+                  ? 16
+                  : isTablet
+                    ? 18
+                    : 19,
+              },
+            ]}
+          >
+            Daftar untuk mulai menggunakan Food AI
           </Text>
 
           {/* ==================================
               NAMA
           ================================== */}
 
-          <Text style={styles.label}>Nama</Text>
+          <Text
+            style={[
+              styles.label,
+              {
+                fontSize: isMobile
+                  ? 18
+                  : isTablet
+                    ? 19
+                    : 20,
+              },
+            ]}
+          >
+            Nama
+          </Text>
 
-          <View style={styles.inputContainer}>
-            <View style={styles.inputIcon}>
-              <Ionicons name="person-outline" size={20} color="#023E8A" />
-            </View>
+          <View
+            style={[
+              styles.inputContainer,
+              {
+                height: isMobile
+                  ? 56
+                  : isTablet
+                    ? 60
+                    : 62,
+              },
+            ]}
+          >
+            <Ionicons
+              name="person-outline"
+              size={isMobile ? 23 : 25}
+              color="#4D6FB7"
+            />
 
             <TextInput
-              style={styles.textInput}
+              style={[
+                styles.input,
+                {
+                  fontSize: isMobile ? 16 : 17,
+                },
+              ]}
               placeholder="Masukkan nama"
-              placeholderTextColor="#8998AA"
+              placeholderTextColor="#5875B5"
               value={name}
               onChangeText={setName}
+              autoCapitalize="words"
             />
           </View>
 
@@ -259,22 +465,53 @@ export default function RegisterScreen() {
               EMAIL
           ================================== */}
 
-          <Text style={styles.label}>Email</Text>
+          <Text
+            style={[
+              styles.label,
+              {
+                fontSize: isMobile
+                  ? 18
+                  : isTablet
+                    ? 19
+                    : 20,
+              },
+            ]}
+          >
+            Email
+          </Text>
 
-          <View style={styles.inputContainer}>
-            <View style={styles.inputIcon}>
-              <Ionicons name="mail-outline" size={20} color="#023E8A" />
-            </View>
+          <View
+            style={[
+              styles.inputContainer,
+              {
+                height: isMobile
+                  ? 58
+                  : isTablet
+                    ? 62
+                    : 64,
+              },
+            ]}
+          >
+            <Ionicons
+              name="mail-outline"
+              size={isMobile ? 23 : 25}
+              color="#4D6FB7"
+            />
 
             <TextInput
-              style={styles.textInput}
+              style={[
+                styles.input,
+                {
+                  fontSize: isMobile ? 16 : 17,
+                },
+              ]}
               placeholder="Masukkan email"
-              placeholderTextColor="#8998AA"
+              placeholderTextColor="#5875B5"
+              value={email}
+              onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
-              value={email}
-              onChangeText={setEmail}
             />
           </View>
 
@@ -282,669 +519,437 @@ export default function RegisterScreen() {
               PASSWORD
           ================================== */}
 
-          <Text style={styles.label}>Password</Text>
+          <Text
+            style={[
+              styles.label,
+              {
+                fontSize: isMobile
+                  ? 18
+                  : isTablet
+                    ? 19
+                    : 20,
+              },
+            ]}
+          >
+            Password
+          </Text>
 
-          <View style={styles.inputContainer}>
-            <View style={styles.inputIcon}>
-              <Ionicons name="lock-closed-outline" size={20} color="#023E8A" />
-            </View>
+          <View
+            style={[
+              styles.inputContainer,
+              {
+                height: isMobile
+                  ? 58
+                  : isTablet
+                    ? 62
+                    : 64,
+              },
+            ]}
+          >
+            <Ionicons
+              name="lock-closed-outline"
+              size={isMobile ? 24 : 26}
+              color="#4D6FB7"
+            />
 
             <TextInput
-              style={styles.textInput}
+              style={[
+                styles.input,
+                {
+                  fontSize: isMobile ? 16 : 17,
+                },
+              ]}
               placeholder="Masukkan password"
-              placeholderTextColor="#8998AA"
-              secureTextEntry
-              autoCapitalize="none"
-              autoCorrect={false}
+              placeholderTextColor="#5875B5"
               value={password}
               onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
+
+            <Pressable
+              onPress={() =>
+                setShowPassword(!showPassword)
+              }
+            >
+              <Ionicons
+                name={
+                  showPassword
+                    ? "eye-outline"
+                    : "eye-off-outline"
+                }
+                size={isMobile ? 24 : 26}
+                color="#4D6FB7"
+              />
+            </Pressable>
           </View>
 
           {/* ==================================
               KONFIRMASI PASSWORD
           ================================== */}
 
-          <Text style={styles.label}>Konfirmasi Password</Text>
+          <Text
+            style={[
+              styles.label,
+              {
+                fontSize: isMobile
+                  ? 18
+                  : isTablet
+                    ? 19
+                    : 20,
+              },
+            ]}
+          >
+            Konfirmasi Password
+          </Text>
 
-          <View style={styles.inputContainer}>
-            <View style={styles.inputIcon}>
-              <Ionicons
-                name="shield-checkmark-outline"
-                size={20}
-                color="#023E8A"
-              />
-            </View>
+          <View
+            style={[
+              styles.inputContainer,
+              {
+                height: isMobile
+                  ? 58
+                  : isTablet
+                    ? 62
+                    : 64,
+              },
+            ]}
+          >
+            <Ionicons
+              name="shield-checkmark-outline"
+              size={isMobile ? 24 : 26}
+              color="#4D6FB7"
+            />
 
             <TextInput
-              style={styles.textInput}
+              style={[
+                styles.input,
+                {
+                  fontSize: isMobile ? 16 : 17,
+                },
+              ]}
               placeholder="Ulangi password"
-              placeholderTextColor="#8998AA"
-              secureTextEntry
-              autoCapitalize="none"
-              autoCorrect={false}
+              placeholderTextColor="#5875B5"
               value={konfirmasiPassword}
               onChangeText={setKonfirmasiPassword}
+              secureTextEntry={!showKonfirmasiPassword}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
+
+            <Pressable
+              onPress={() =>
+                setShowKonfirmasiPassword(
+                  !showKonfirmasiPassword,
+                )
+              }
+            >
+              <Ionicons
+                name={
+                  showKonfirmasiPassword
+                    ? "eye-outline"
+                    : "eye-off-outline"
+                }
+                size={isMobile ? 24 : 26}
+                color="#4D6FB7"
+              />
+            </Pressable>
           </View>
 
           {/* ==================================
-              REGISTER BUTTON
+              BUTTON DAFTAR
           ================================== */}
 
           <Pressable
-            style={[
-              styles.registerMainButton,
-              isLoading && styles.buttonDisabled,
-            ]}
-            onPress={handleRegister}
-            disabled={isLoading}
-          >
-            <Text style={styles.registerMainText}>
-              {isLoading ? "Mendaftarkan..." : "Daftar"}
+            style={({ pressed }) => [
+                styles.button,
+                {
+                  height: isMobile ? 56 : isTablet ? 62 : 64,
+                  opacity: pressed ? 0.8 : 1,
+                  transform: [{ scale: pressed ? 0.98 : 1 }],
+                },
+                isLoading && styles.buttonDisabled,
+              ]}
+              onPress={handleRegister}
+              disabled={isLoading}  
+            >
+            <Text
+              style={[
+                styles.buttonText,
+                {
+                  fontSize: isMobile
+                    ? 18
+                    : isTablet
+                      ? 19
+                      : 20,
+                },
+              ]}
+            >
+              {isLoading
+                ? "Mendaftarkan..."
+                : "Daftar"}
             </Text>
-
-            {!isLoading && (
-              <Ionicons name="arrow-forward" size={21} color="#FFFFFF" />
-            )}
           </Pressable>
-
-          {/* ==================================
-              DIVIDER
-          ================================== */}
-
-          <View style={styles.dividerContainer}>
-            <View style={styles.divider} />
-
-            <Text style={styles.dividerText}>sudah punya akun?</Text>
-
-            <View style={styles.divider} />
-          </View>
 
           {/* ==================================
               LOGIN
           ================================== */}
 
-          <Pressable
-            style={styles.loginButton}
-            onPress={() => router.replace("/login")}
+          <View
+            style={[
+              styles.loginContainer,
+              {
+                marginTop: isMobile ? 22 : 25,
+              },
+            ]}
           >
-            <Ionicons name="log-in-outline" size={20} color="#023E8A" />
+            <Text
+              style={[
+                styles.loginText,
+                {
+                  fontSize: isMobile ? 16 : 17,
+                },
+              ]}
+            >
+              Sudah punya akun?
+            </Text>
 
-            <Text style={styles.loginText}>Login</Text>
-          </Pressable>
+            <Pressable
+              onPress={() => router.replace("/login")}
+            >
+              <Text
+                style={[
+                  styles.loginLink,
+                  {
+                    fontSize: isMobile ? 16 : 17,
+                  },
+                ]}
+              >
+                Login
+              </Text>
+            </Pressable>
+          </View>
         </View>
 
         {/* ==================================
             FOOTER
         ================================== */}
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Powered by</Text>
-
-          <Text style={styles.tagoText}>TAGO</Text>
-        </View>
+        <Text
+          style={[
+            styles.footer,
+            {
+              fontSize: isMobile ? 14 : 15,
+            },
+          ]}
+        >
+          Powered by TAGO
+        </Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-const styles = StyleSheet.create({
-  /* ==================================
-     CONTAINER
-  ================================== */
+// ==================================
+// STYLE
+// ==================================
 
+const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#E3E9F1",
+    backgroundColor: "#EAF4FF",
   },
 
-  scrollContent: {
-    flexGrow: 1,
+  scrollContainer: {
     alignItems: "center",
-    paddingBottom: 25,
+    paddingBottom: 30,
   },
 
-  /* ==================================
-     COVER
-  ================================== */
+  // ==================================
+  // HEADER
+  // ==================================
 
-  cover: {
+  header: {
     width: "100%",
-    height: 365,
-
-    backgroundColor: "#023E8A",
-
-    paddingHorizontal: 25,
-    paddingTop: 35,
-
+    backgroundColor: "#0647D8",
+    position: "relative",
     overflow: "hidden",
-
-    borderBottomLeftRadius: 45,
-    borderBottomRightRadius: 45,
+    borderBottomLeftRadius: 55,
+    borderBottomRightRadius: 55,
   },
 
-  coverSmall: {
-    height: 340,
+  // ==================================
+  // LOGO
+  // ==================================
 
-    paddingHorizontal: 19,
-    paddingTop: 28,
-  },
-
-  coverDesktop: {
-    height: 390,
-
-    paddingHorizontal: 40,
-    paddingTop: 45,
-  },
-
-  /* ==================================
-     LOGO
-  ================================== */
-
-  brand: {
-    flexDirection: "row",
-    alignItems: "center",
-
-    zIndex: 5,
-  },
-
-  logoCircle: {
-    width: 58,
-    height: 58,
-
-    borderRadius: 29,
-
-    backgroundColor: "#FFFFFF",
-
-    justifyContent: "center",
-    alignItems: "center",
-
-    marginRight: 11,
-  },
-
-  logoCircleSmall: {
-    width: 50,
-    height: 50,
-
-    borderRadius: 25,
-  },
-
-  logoText: {
-    fontSize: 31,
-
-    fontWeight: "800",
-
-    color: "#FFFFFF",
-  },
-
-  logoTextSmall: {
-    fontSize: 27,
-  },
-
-  logoSubtitle: {
-    fontSize: 11,
-
-    color: "#DCEBFA",
-
-    marginTop: 1,
-  },
-
-  /* ==================================
-     COVER TEXT
-  ================================== */
-
-  coverTextContainer: {
-    marginTop: 28,
-
-    zIndex: 5,
-  },
-
-  coverTitle: {
-    fontSize: 24,
-
-    fontWeight: "800",
-
-    color: "#FFFFFF",
-
-    lineHeight: 31,
-  },
-
-  coverTitleSmall: {
-    fontSize: 20,
-
-    lineHeight: 26,
-  },
-
-  coverTitleDesktop: {
-    fontSize: 30,
-
-    lineHeight: 38,
-  },
-
-  coverDescription: {
-    fontSize: 13,
-
-    lineHeight: 19,
-
-    color: "#DCEBFA",
-
-    marginTop: 8,
-
-    zIndex: 5,
-  },
-
-  coverDescriptionDesktop: {
-    fontSize: 14,
-
-    lineHeight: 21,
-  },
-
-  /* ==================================
-     FOOD IMAGE
-  ================================== */
-
-  foodImageWrapper: {
+  logoSection: {
     position: "absolute",
-
-    width: 155,
-    height: 155,
-
-    borderRadius: 78,
-
-    right: -12,
-    top: 28,
-
-    borderWidth: 6,
-
-    borderColor: "#FFFFFF",
-
-    overflow: "hidden",
-
-    zIndex: 4,
-
-    shadowColor: "#000",
-
-    shadowOffset: {
-      width: 0,
-      height: 5,
-    },
-
-    shadowOpacity: 0.18,
-
-    shadowRadius: 10,
-
-    elevation: 7,
-  },
-
-  foodImageWrapperSmall: {
-    width: 125,
-    height: 125,
-
-    borderRadius: 63,
-
-    right: -10,
-    top: 25,
-
-    borderWidth: 5,
-  },
-
-  foodImageWrapperDesktop: {
-    width: 180,
-    height: 180,
-
-    borderRadius: 90,
-
-    right: 30,
-    top: 35,
-  },
-
-  foodImage: {
-    width: "100%",
-    height: "100%",
-  },
-
-  /* ==================================
-     DECORATION
-  ================================== */
-
-  coverCircleOne: {
-    position: "absolute",
-
-    width: 190,
-    height: 190,
-
-    borderRadius: 95,
-
-    backgroundColor: "#BDD8E9",
-
-    right: -90,
-    bottom: -75,
-
-    opacity: 0.35,
-  },
-
-  coverCircleTwo: {
-    position: "absolute",
-
-    width: 150,
-    height: 150,
-
-    borderRadius: 75,
-
-    backgroundColor: "#FFFFFF",
-
-    left: -95,
-    bottom: -85,
-
-    opacity: 0.1,
-  },
-
-  decorLineOne: {
-    position: "absolute",
-
-    width: 55,
-    height: 5,
-
-    borderRadius: 3,
-
-    backgroundColor: "#BDD8E9",
-
-    right: 135,
-    top: 130,
-
-    transform: [
-      {
-        rotate: "-25deg",
-      },
-    ],
-  },
-
-  decorLineTwo: {
-    position: "absolute",
-
-    width: 35,
-    height: 5,
-
-    borderRadius: 3,
-
-    backgroundColor: "#FFFFFF",
-
-    right: 120,
-    top: 145,
-
-    opacity: 0.8,
-
-    transform: [
-      {
-        rotate: "-25deg",
-      },
-    ],
-  },
-
-  /* ==================================
-     CARD
-  ================================== */
-
-  card: {
-    width: "91%",
-
-    maxWidth: 440,
-
-    backgroundColor: "#FFFFFF",
-
-    borderRadius: 24,
-
-    paddingHorizontal: 23,
-    paddingVertical: 26,
-
-    marginTop: -42,
-
+    alignItems: "flex-start",
     zIndex: 10,
-
-    shadowColor: "#023E8A",
-
-    shadowOffset: {
-      width: 0,
-      height: 7,
-    },
-
-    shadowOpacity: 0.15,
-
-    shadowRadius: 18,
-
-    elevation: 8,
   },
 
-  cardSmall: {
-    width: "92%",
-
-    paddingHorizontal: 18,
-    paddingVertical: 22,
-
-    marginTop: -35,
-
-    borderRadius: 20,
-  },
-
-  cardDesktop: {
-    width: "90%",
-
-    maxWidth: 470,
-
-    paddingHorizontal: 38,
-    paddingVertical: 34,
-
-    marginTop: -48,
-
-    borderRadius: 25,
-  },
-
-  /* ==================================
-     TITLE
-  ================================== */
-
-  title: {
-    fontSize: 25,
-
-    fontWeight: "800",
-
-    color: "#023E8A",
-
-    textAlign: "center",
-  },
-
-  subtitle: {
-    fontSize: 13,
-
-    lineHeight: 19,
-
-    color: "#71849B",
-
-    textAlign: "center",
-
-    marginTop: 7,
-    marginBottom: 23,
-  },
-
-  /* ==================================
-     INPUT
-  ================================== */
-
-  label: {
-    fontSize: 14,
-
-    fontWeight: "700",
-
-    color: "#26384F",
-
-    marginBottom: 7,
-  },
-
-  inputContainer: {
-    height: 50,
-
-    flexDirection: "row",
-
-    alignItems: "center",
-
-    borderWidth: 1.3,
-
-    borderColor: "#D1DEEF",
-
-    borderRadius: 12,
-
-    backgroundColor: "#FAFCFF",
-
-    marginBottom: 14,
-  },
-
-  inputIcon: {
-    width: 43,
-    height: 43,
-
-    borderRadius: 10,
-
-    backgroundColor: "#E3EDF9",
-
-    justifyContent: "center",
-    alignItems: "center",
-
-    marginLeft: 3,
-  },
-
-  textInput: {
-    flex: 1,
-
-    height: "100%",
-
-    fontSize: 15,
-
-    color: "#26384F",
-
-    paddingHorizontal: 12,
-  },
-
-  /* ==================================
-     REGISTER BUTTON
-  ================================== */
-
-  registerMainButton: {
-    height: 52,
-
-    borderRadius: 26,
-
-    backgroundColor: "#023E8A",
-
-    flexDirection: "row",
-
-    justifyContent: "center",
-    alignItems: "center",
-
-    gap: 9,
-
-    marginTop: 4,
-  },
-
-  buttonDisabled: {
-    opacity: 0.55,
-  },
-
-  registerMainText: {
-    color: "#FFFFFF",
-
-    fontSize: 16,
-
-    fontWeight: "800",
-  },
-
-  /* ==================================
-     DIVIDER
-  ================================== */
-
-  dividerContainer: {
-    flexDirection: "row",
-
-    alignItems: "center",
-
-    marginVertical: 19,
-  },
-
-  divider: {
-    flex: 1,
-
-    height: 1,
-
-    backgroundColor: "#D8E1EC",
-  },
-
-  dividerText: {
-    color: "#8293A8",
-
-    fontSize: 12,
-
-    marginHorizontal: 10,
-  },
-
-  /* ==================================
-     LOGIN BUTTON
-  ================================== */
-
-  loginButton: {
-    height: 48,
-
-    borderWidth: 1.3,
-
-    borderColor: "#AFC5DE",
-
-    borderRadius: 12,
-
-    flexDirection: "row",
-
-    alignItems: "center",
-
-    justifyContent: "center",
-
-    gap: 7,
-
-    backgroundColor: "#FFFFFF",
-  },
-
-  loginText: {
-    color: "#023E8A",
-
-    fontSize: 15,
-
-    fontWeight: "800",
-  },
-
-  /* ==================================
-     FOOTER
-  ================================== */
-
-  footer: {
-    flexDirection: "row",
-
-    alignItems: "center",
-
-    justifyContent: "center",
-
-    marginTop: 17,
-
-    gap: 5,
-  },
-
-  footerText: {
-    color: "#71849B",
-
-    fontSize: 12,
+  logo: {
+    width: 76,
+    height: 76,
   },
 
   tagoText: {
-    color: "#023E8A",
-
-    fontSize: 13,
-
+    color: "#FFFFFF",
     fontWeight: "800",
+    marginTop: 2,
+    includeFontPadding: false,
+  },
+
+  // ==================================
+  // GAMBAR ORANG
+  // ==================================
+
+  personImage: {
+    position: "absolute",
+    zIndex: 2,
+  },
+
+  // ==================================
+  // HEADER TEXT
+  // ==================================
+
+  headerText: {
+    position: "absolute",
+    zIndex: 5,
+  },
+
+  welcomeTitle: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+    marginBottom: 8,
+    includeFontPadding: false,
+  },
+
+  welcomeSubtitle: {
+    color: "#FFFFFF",
+    fontWeight: "500",
+    includeFontPadding: false,
+  },
+
+  // ==================================
+  // REGISTER CARD
+  // ==================================
+
+  registerCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 28,
+    shadowColor: "#0647D8",
+    shadowOffset: {
+      width: 0,
+      height: 6,
+    },
+    shadowOpacity: 0.10,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+
+  // ==================================
+  // TITLE
+  // ==================================
+
+  registerTitle: {
+    color: "#111827",
+    fontWeight: "800",
+    marginBottom: 4,
+  },
+
+  registerSubtitle: {
+    color: "#35588F",
+    marginBottom: 22,
+  },
+
+  // ==================================
+  // LABEL
+  // ==================================
+
+  label: {
+    color: "#101827",
+    fontWeight: "700",
+    marginBottom: 7,
+  },
+
+  // ==================================
+  // INPUT
+  // ==================================
+
+  inputContainer: {
+    width: "100%",
+    borderWidth: 1.5,
+    borderColor: "#8AB9FF",
+    borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    marginBottom: 14,
+    backgroundColor: "#FBFDFF",
+  },
+
+  input: {
+    flex: 1,
+    color: "#111827",
+    marginLeft: 11,
+  },
+
+  // ==================================
+  // BUTTON
+  // ==================================
+
+  button: {
+    width: "100%",
+
+    backgroundColor: "#0647D8",
+
+    borderRadius: 15,
+
+    justifyContent: "center",
+    alignItems: "center",
+
+    marginTop: 2,
+  },
+
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+
+  buttonText: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+  },
+
+  // ==================================
+  // LOGIN
+  // ==================================
+
+  loginContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  loginText: {
+    color: "#35588F",
+  },
+
+  loginLink: {
+    color: "#0647D8",
+    fontWeight: "800",
+    marginLeft: 7,
+  },
+
+  // ==================================
+  // FOOTER
+  // ==================================
+
+  footer: {
+    color: "#5273A7",
+    marginTop: 18,
+    textAlign: "center",
+    marginBottom: 5,
   },
 });
