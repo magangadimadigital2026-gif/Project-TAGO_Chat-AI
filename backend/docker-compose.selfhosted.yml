@@ -1,4 +1,4 @@
-services:
+﻿services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -17,6 +17,13 @@ services:
   ollama:
     image: ollama/ollama:latest
     restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     volumes:
       - ollama_data:/root/.ollama
     ports:
@@ -50,6 +57,7 @@ services:
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       OLLAMA_URL: http://ollama:11434
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3:4b}
+      WEATHER_API_KEY: ${WEATHER_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy

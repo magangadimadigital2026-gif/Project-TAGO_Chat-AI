@@ -32,6 +32,12 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Aplikasi ini menggunakan lokasi untuk memberikan rekomendasi makanan yang sesuai dengan cuaca dan tempatmu."
+        }
       ]
     ],
     "experiments": {

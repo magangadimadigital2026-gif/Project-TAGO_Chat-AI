@@ -1,4 +1,4 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
@@ -110,7 +110,7 @@ export default function RegisterScreen() {
 
       console.log("Hasil register:", result);
 
-      if (response.ok && result.success) {
+      if (response.ok && result.token) {
         Alert.alert(
           "Registrasi Berhasil",
           result.message || "Akun berhasil dibuat.",
