@@ -41,6 +41,77 @@ const ollamaUrl = (process.env.OLLAMA_URL ?? "http://ollama:11434").replace(
 );
 const ollamaModel = process.env.OLLAMA_MODEL ?? "qwen3:4b";
 
+const aiProvider = (process.env.AI_PROVIDER ?? "ollama").toLowerCase();
+const geminiApiKey = process.env.GEMINI_API_KEY ?? "";
+const geminiModel = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
+
+type ChatMsg = { role: string; content: string };
+type AiResult =
+  | { ok: true; text: string; model: string }
+  | { ok: false; detail: string };
+
+async function askOllama(messages: ChatMsg[]): Promise<AiResult> {
+  const response = await fetch(`${ollamaUrl}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: ollamaModel,
+      messages,
+      stream: false,
+      options: { temperature: 0.4 },
+    }),
+  });
+  if (!response.ok) return { ok: false, detail: await response.text() };
+  const payload = (await response.json()) as {
+    message?: { content?: string };
+  };
+  return {
+    ok: true,
+    text: payload.message?.content?.trim() ?? "",
+    model: ollamaModel,
+  };
+}
+
+async function askGemini(messages: ChatMsg[]): Promise<AiResult> {
+  if (!geminiApiKey) {
+    return { ok: false, detail: "GEMINI_API_KEY belum diisi" };
+  }
+  const system = messages
+    .filter((m) => m.role === "system")
+    .map((m) => m.content)
+    .join("\n\n");
+  const contents = messages
+    .filter((m) => m.role !== "system")
+    .map((m) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }],
+    }));
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": geminiApiKey,
+      },
+      body: JSON.stringify({
+        systemInstruction: system ? { parts: [{ text: system }] } : undefined,
+        contents,
+        generationConfig: { temperature: 0.4 },
+      }),
+    },
+  );
+  if (!response.ok) return { ok: false, detail: await response.text() };
+  const payload = (await response.json()) as {
+    candidates?: { content?: { parts?: { text?: string }[] } }[];
+  };
+  const text = (payload.candidates?.[0]?.content?.parts ?? [])
+    .map((p) => p.text ?? "")
+    .join("")
+    .trim();
+  return { ok: true, text, model: geminiModel };
+}
+
 app.use(
   "/api/*",
   cors({
@@ -153,7 +224,7 @@ const chatInput = z.object({
   lat: z.number().optional(),
   lon: z.number().optional(),
 });
-const systemPrompt = `Kamu adalah FoodMate, teman ngobrol yang santai dan ramah, membantu memilih makanan. Gunakan gaya bahasa yang hangat dan emoji secukupnya. Jika info dari user belum lengkap (budget, waktu makan, selera), tanya balik dengan pertanyaan sederhana dulu, jangan langsung kasih daftar panjang. Pertimbangkan cuaca jika tersedia dalam konteks percakapan. Jangan memberi diagnosis medis; sarankan cek bahan dan konsultasi profesional untuk risiko kesehatan. SELALU akhiri jawabanmu dengan baris terpisah berisi JSON: {"quick_replies": ["opsi singkat 1", "opsi singkat 2", "opsi singkat 3"]} — isi array dengan 3 balasan singkat yang relevan untuk user pilih selanjutnya.`;
+const systemPrompt = `Kamu adalah FoodMate, teman ngobrol yang santai dan ramah, membantu memilih makanan. Gunakan gaya bahasa yang hangat dan emoji secukupnya. Jika info dari user belum lengkap (budget, waktu makan, selera), tanya balik dengan pertanyaan sederhana dulu, jangan langsung kasih daftar panjang. Pertimbangkan cuaca jika tersedia dalam konteks percakapan. angan memberi diagnosis medis; sarankan cek bahan dan konsultasi profesional untuk risiko kesehatan. Jangan mengarang atau menebak komposisi/bahan spesifik suatu makanan jika tidak yakin — cukup sebut nama makanannya saja tanpa rincian bahan yang salah, atau gunakan deskripsi umum yang aman seperti "makanan/minuman khas daerah tersebut". SELALU akhiri jawabanmu dengan baris terpisah berisi JSON : {"quick_replies": ["opsi singkat 1", "opsi singkat 2", "opsi singkat 3"]} — isi array dengan 3 balasan singkat yang relevan untuk user pilih selanjutnya.`;
 
 app.post("/api/chat", authMiddleware, async (c) => {
   const parsed = chatInput.safeParse(await c.req.json().catch(() => null));
@@ -186,24 +257,17 @@ app.post("/api/chat", authMiddleware, async (c) => {
   await db
     .insert(chatMessages)
     .values({ userId: user.id, role: "user", content: parsed.data.message });
-  const response = await fetch(`${ollamaUrl}/api/chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: ollamaModel,
-      messages,
-      stream: false,
-      options: { temperature: 0.4 },
-    }),
-  });
-  if (!response.ok) {
-    const detail = await response.text();
-    return c.json({ error: "AI model is unavailable", detail }, 503);
+  const result =
+    aiProvider === "gemini"
+      ? await askGemini(messages)
+      : await askOllama(messages);
+  if (!result.ok) {
+    return c.json(
+      { error: "AI model is unavailable", detail: result.detail },
+      503,
+    );
   }
-  const payload = (await response.json()) as { message?: { content?: string } };
-  const rawAnswer =
-    payload.message?.content?.trim() ||
-    "Maaf, model belum mengembalikan jawaban.";
+  const rawAnswer = result.text || "Maaf, model belum mengembalikan jawaban.";
 
   let answer = rawAnswer;
   let quickReplies: string[] = [];
@@ -223,7 +287,7 @@ app.post("/api/chat", authMiddleware, async (c) => {
   await db
     .insert(chatMessages)
     .values({ userId: user.id, role: "assistant", content: answer });
-  return c.json({ answer, quick_replies: quickReplies, model: ollamaModel });
+  return c.json({ answer, quick_replies: quickReplies, model: result.model });
 });
 
 app.onError((error, c) => {
