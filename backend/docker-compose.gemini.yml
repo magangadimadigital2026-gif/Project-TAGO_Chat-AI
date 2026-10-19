@@ -1,0 +1,10 @@
+services:
+  api:
+    environment:
+      AI_PROVIDER: gemini
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+        required: false
