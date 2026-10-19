@@ -44,6 +44,8 @@ const ollamaModel = process.env.OLLAMA_MODEL ?? "qwen3:4b";
 const aiProvider = (process.env.AI_PROVIDER ?? "ollama").toLowerCase();
 const geminiApiKey = process.env.GEMINI_API_KEY ?? "";
 const geminiModel = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
+const geminiFallbackModel = process.env.GEMINI_FALLBACK_MODEL ?? "";
+const geminiThinking = process.env.GEMINI_THINKING_LEVEL ?? "";
 
 type ChatMsg = { role: string; content: string };
 type AiResult =
@@ -72,6 +74,35 @@ async function askOllama(messages: ChatMsg[]): Promise<AiResult> {
   };
 }
 
+async function callGemini(
+  model: string,
+  body: Record<string, unknown>,
+  timeoutMs: number,
+): Promise<Response> {
+  const started = Date.now();
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": geminiApiKey,
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(timeoutMs),
+      },
+    );
+    console.log(
+      `gemini model=${model} status=${res.status} ${Date.now() - started}ms`,
+    );
+    return res;
+  } catch {
+    console.log(`gemini model=${model} timeout/error ${Date.now() - started}ms`);
+    return new Response("Gemini timeout", { status: 504 });
+  }
+}
+
 async function askGemini(messages: ChatMsg[]): Promise<AiResult> {
   if (!geminiApiKey) {
     return { ok: false, detail: "GEMINI_API_KEY belum diisi" };
@@ -86,21 +117,28 @@ async function askGemini(messages: ChatMsg[]): Promise<AiResult> {
       role: m.role === "assistant" ? "model" : "user",
       parts: [{ text: m.content }],
     }));
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": geminiApiKey,
-      },
-      body: JSON.stringify({
-        systemInstruction: system ? { parts: [{ text: system }] } : undefined,
-        contents,
-        generationConfig: { temperature: 0.4 },
-      }),
+  const buildBody = (withThinking: boolean) => ({
+    systemInstruction: system ? { parts: [{ text: system }] } : undefined,
+    contents,
+    generationConfig: {
+      temperature: 0.4,
+      maxOutputTokens: 2048,
+      ...(withThinking && geminiThinking
+        ? { thinkingConfig: { thinkingLevel: geminiThinking } }
+        : {}),
     },
-  );
+  });
+  const retryable = (s: number) => s === 429 || s >= 500;
+
+  let usedModel = geminiModel;
+  let response = await callGemini(geminiModel, buildBody(true), 20_000);
+  if (response.status === 400 && geminiThinking) {
+    response = await callGemini(geminiModel, buildBody(false), 20_000);
+  }
+  if (retryable(response.status)) {
+    usedModel = geminiFallbackModel || geminiModel;
+    response = await callGemini(usedModel, buildBody(false), 20_000);
+  }
   if (!response.ok) return { ok: false, detail: await response.text() };
   const payload = (await response.json()) as {
     candidates?: { content?: { parts?: { text?: string }[] } }[];
@@ -109,7 +147,7 @@ async function askGemini(messages: ChatMsg[]): Promise<AiResult> {
     .map((p) => p.text ?? "")
     .join("")
     .trim();
-  return { ok: true, text, model: geminiModel };
+  return { ok: true, text, model: usedModel };
 }
 
 app.use(
@@ -224,7 +262,7 @@ const chatInput = z.object({
   lat: z.number().optional(),
   lon: z.number().optional(),
 });
-const systemPrompt = `Kamu adalah FoodMate, teman ngobrol yang santai dan ramah, membantu memilih makanan. Gunakan gaya bahasa yang hangat dan emoji secukupnya. Jika info dari user belum lengkap (budget, waktu makan, selera), tanya balik dengan pertanyaan sederhana dulu, jangan langsung kasih daftar panjang. Pertimbangkan cuaca jika tersedia dalam konteks percakapan. angan memberi diagnosis medis; sarankan cek bahan dan konsultasi profesional untuk risiko kesehatan. Jangan mengarang atau menebak komposisi/bahan spesifik suatu makanan jika tidak yakin — cukup sebut nama makanannya saja tanpa rincian bahan yang salah, atau gunakan deskripsi umum yang aman seperti "makanan/minuman khas daerah tersebut". SELALU akhiri jawabanmu dengan baris terpisah berisi JSON : {"quick_replies": ["opsi singkat 1", "opsi singkat 2", "opsi singkat 3"]} — isi array dengan 3 balasan singkat yang relevan untuk user pilih selanjutnya.`;
+const systemPrompt = `Kamu adalah FoodMate, teman ngobrol yang santai dan ramah, membantu memilih makanan. Gunakan gaya bahasa yang hangat dan emoji secukupnya. Jika info dari user belum lengkap (budget, waktu makan, selera), tanya balik dengan pertanyaan sederhana dulu, jangan langsung kasih daftar panjang. Pertimbangkan cuaca jika tersedia dalam konteks percakapan. jangan memberi diagnosis medis; sarankan cek bahan dan konsultasi profesional untuk risiko kesehatan. Jangan mengarang atau menebak komposisi/bahan spesifik suatu makanan jika tidak yakin — cukup sebut nama makanannya saja tanpa rincian bahan yang salah, atau gunakan deskripsi umum yang aman seperti "makanan/minuman khas daerah tersebut". SELALU akhiri jawabanmu dengan baris terpisah berisi JSON : {"quick_replies": ["opsi singkat 1", "opsi singkat 2", "opsi singkat 3"]} — isi array dengan 3 balasan singkat yang relevan untuk user pilih selanjutnya.`;
 
 app.post("/api/chat", authMiddleware, async (c) => {
   const parsed = chatInput.safeParse(await c.req.json().catch(() => null));
