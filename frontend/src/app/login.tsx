@@ -1,97 +1,55 @@
-import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router } from "expo-router";
 import { useState } from "react";
 import {
-  Alert,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
+  View,
   Text,
   TextInput,
-  useWindowDimensions,
-  View,
+  TouchableOpacity,
+  Image,
+  StyleSheet,
+  Alert,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-
+import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_URL } from "../constants/api";
 
-export default function LoginScreen() {
-  const { width, height } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
+export default function Login() {
+  const router = useRouter();
 
-  // =====================================================
-  // RESPONSIVE
-  // =====================================================
-
-  const isMobile = width < 600;
-  const isTablet = width >= 600 && width < 1000;
-  const isDesktop = width >= 1000;
-
-  // =====================================================
-  // UKURAN HEADER
-  // =====================================================
-
-  const headerHeight = isMobile
-    ? 380
-    : isTablet
-      ? 450
-      : Math.min(Math.max(width * 0.30, 400), 540);
-
-  // =====================================================
-  // UKURAN CARD LOGIN
-  // =====================================================
-
-  const cardWidth = isMobile
-    ? width - 44
-    : isTablet
-      ? Math.min(width - 80, 700)
-      : Math.min(width - 160, 850);
-
-  // =====================================================
-  // STATE LOGIN
-  // =====================================================
-
+  // Menyimpan data input
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  // =====================================================
-  // HANDLE LOGIN
-  // =====================================================
-
+  // Fungsi untuk login
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert(
-        "Peringatan",
-        "Email dan password wajib diisi."
-      );
+    if (!email.trim() || !password) {
+      Alert.alert("Peringatan", "Email dan password harus diisi.");
       return;
     }
 
     try {
-      const response = await fetch(
-        `${API_URL}/api/auth/login`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email,
-            password,
-          }),
-        }
-      );
+      setLoading(true);
+
+      // Mengirim email dan password ke Backend
+      const response = await fetch(`${API_URL}/api/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          password: password,
+        }),
+      });
 
       const result = await response.json();
 
-      console.log("Data login:", result);
-
-      if (!response.ok || !result.token) {
+      // Memeriksa hasil login
+      if (!response.ok) {
         Alert.alert(
           "Login Gagal",
           result.message || "Email atau password salah."
@@ -99,871 +57,206 @@ export default function LoginScreen() {
         return;
       }
 
-      const token = result.token;
-      const name = result.user?.name;
+      // Mengambil token dan data pengguna
+      const token = result.data?.token;
+      const user = result.data?.user;
 
       if (!token) {
-        Alert.alert(
-          "Login Gagal",
-          "Token tidak ditemukan."
-        );
+        Alert.alert("Login Gagal", "Token tidak ditemukan dari server.");
         return;
       }
 
-      // Simpan token
+      // Menyimpan data login
       await AsyncStorage.setItem("token", token);
 
-      // Simpan nama user
-      if (name) {
-        await AsyncStorage.setItem("userName", name);
+      if (user?.name) {
+        await AsyncStorage.setItem("userName", user.name);
       }
 
-      console.log("Token berhasil disimpan");
+      if (user?.email) {
+        await AsyncStorage.setItem("userEmail", user.email);
+      }
 
-      // Pindah ke halaman Home
-      router.replace("/home");
-    } catch (error) {
-      console.error("Error login:", error);
-
+      // Berpindah ke halaman chat
+      router.replace("/chat");
+    } catch {
       Alert.alert(
-        "Koneksi Gagal",
-        "Tidak dapat terhubung ke server."
+        "Gagal",
+        "Tidak dapat terhubung ke server. Periksa koneksi Backend."
       );
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={
-        Platform.OS === "ios"
-          ? "padding"
-          : undefined
-      }
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
-        contentContainerStyle={[
-          styles.scrollContainer,
-          {
-            minHeight: height,
-          },
-        ]}
+        contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
       >
-
-        {/* ================================================= */}
-        {/* HEADER */}
-        {/* ================================================= */}
-
-        <View
-          style={[
-            styles.header,
-            {
-              height: headerHeight,
-            },
-          ]}
-        >
-
-          {/* ================================================= */}
-          {/* LOGO TAGO */}
-          {/* ================================================= */}
-
-          <View
-            style={[
-              styles.logoSection,
-              {
-                left: isMobile
-                  ? 24
-                  : isTablet
-                    ? 45
-                    : 55,
-
-                top:
-                  insets.top +
-                  (isMobile ? 5 : 10),
-              },
-            ]}
-          >
-            <Image
-              source={require("../../assets/images/logo_tago.jpg")}
-              style={[
-                styles.logo,
-                {
-                  width: isMobile
-                    ? 72
-                    : isTablet
-                      ? 90
-                      : 105,
-
-                  height: isMobile
-                    ? 72
-                    : isTablet
-                      ? 90
-                      : 105,
-                },
-              ]}
-              resizeMode="contain"
-            />
-
-            <Text
-              style={[
-                styles.tagoText,
-                {
-                  fontSize: isMobile
-                    ? 23
-                    : isTablet
-                      ? 27
-                      : 30,
-                },
-              ]}
-            >
-              TAGO
-            </Text>
-          </View>
-
-
-          {/* ================================================= */}
-          {/* GAMBAR ORANG */}
-          {/* ================================================= */}
-
-          <Image
-            source={require("../../assets/images/orang.png")}
-            style={[
-              styles.personImage,
-              {
-                width: isMobile
-                  ? width * 0.44
-                  : isTablet
-                    ? width * 0.37
-                    : width * 0.32,
-
-                height: isMobile
-                  ? headerHeight * 0.55
-                  : isTablet
-                    ? headerHeight * 0.62
-                    : headerHeight * 0.70,
-
-                right: isMobile
-                  ? -8
-                  : isTablet
-                    ? 20
-                    : 50,
-
-                bottom: isMobile
-                  ? 5
-                  : 8,
-              },
-            ]}
-            resizeMode="contain"
-          />
-
-
-          {/* ================================================= */}
-          {/* HIASAN PUTIH */}
-          {/* ================================================= */}
-{/*
-          <View
-            style={[
-              styles.decorationOne,
-              {
-                right: isMobile
-                  ? 18
-                  : isTablet
-                    ? 25
-                    : 55,
-
-                top: isMobile
-                  ? insets.top + 115
-                  : isTablet
-                    ? 125
-                    : 100,
-              },
-            ]}
-          />
-
- 
-          <View
-            style={[
-              styles.decorationTwo,
-              {
-                right: isMobile
-                  ? 50
-                  : isTablet
-                    ? 50
-                    : 80,
-
-                top: isMobile
-                  ? insets.top + 140
-                  : isTablet
-                    ? 155
-                    : 125,
-              },
-            ]}
-          />
-*/}
-
-          {/* ================================================= */}
-          {/* TEKS HEADER */}
-          {/* ================================================= */}
-
-          <View
-            style={[
-              styles.headerText,
-              {
-                left: isMobile
-                  ? 24
-                  : isTablet
-                    ? 45
-                    : 55,
-
-                bottom: isMobile
-                  ? 30
-                  : isTablet
-                    ? 45
-                    : 55,
-
-                width: isMobile
-                  ? width * 0.67
-                  : isTablet
-                    ? width * 0.55
-                    : width * 0.45,
-              },
-            ]}
-          >
-
-            <Text
-              style={[
-                styles.welcomeTitle,
-                {
-                  fontSize: isMobile
-                    ? 30
-                    : isTablet
-                      ? 40
-                      : 48,
-                },
-              ]}
-            >
-              Selamat Datang!
-            </Text>
-
-            <Text
-              style={[
-                styles.welcomeSubtitle,
-                {
-                  fontSize: isMobile
-                    ? 16
-                    : isTablet
-                      ? 19
-                      : 21,
-
-                  lineHeight: isMobile
-                    ? 22
-                    : isTablet
-                      ? 27
-                      : 29,
-                },
-              ]}
-            >
-              Login dan temukan rekomendasi
-            </Text>
-
-            <Text
-              style={[
-                styles.welcomeSubtitle,
-                {
-                  fontSize: isMobile
-                    ? 16
-                    : isTablet
-                      ? 19
-                      : 21,
-
-                  lineHeight: isMobile
-                    ? 22
-                    : isTablet
-                      ? 27
-                      : 29,
-                },
-              ]}
-            >
-              makananmu
-            </Text>
-
-          </View>
-        </View>
-
-
-        {/* ================================================= */}
-        {/* LOGIN CARD */}
-        {/* ================================================= */}
-
-        <View
-          style={[
-            styles.loginCard,
-            {
-              width: cardWidth,
-
-              marginTop: isMobile
-                ? 14
-                : isTablet
-                  ? 20
-                  : 28,
-
-              paddingHorizontal: isMobile
-                ? 24
-                : isTablet
-                  ? 35
-                  : 45,
-
-              paddingVertical: isMobile
-                ? 25
-                : isTablet
-                  ? 32
-                  : 40,
-            },
-          ]}
-        >
-
-          {/* TITLE */}
-
-          <Text
-            style={[
-              styles.loginTitle,
-              {
-                fontSize: isMobile
-                  ? 35
-                  : isTablet
-                    ? 40
-                    : 44,
-              },
-            ]}
-          >
-            Login
-          </Text>
-
-          <Text
-            style={[
-              styles.loginSubtitle,
-              {
-                fontSize: isMobile
-                  ? 16
-                  : isTablet
-                    ? 18
-                    : 19,
-              },
-            ]}
-          >
-            Masuk untuk melanjutkan ke Food AI
-          </Text>
-
-
-          {/* ================================================= */}
-          {/* EMAIL */}
-          {/* ================================================= */}
-
-          <Text
-            style={[
-              styles.label,
-              {
-                fontSize: isMobile
-                  ? 18
-                  : isTablet
-                    ? 19
-                    : 20,
-              },
-            ]}
-          >
-            Email
-          </Text>
-
-          <View
-            style={[
-              styles.inputContainer,
-              {
-                height: isMobile
-                  ? 58
-                  : isTablet
-                    ? 62
-                    : 64,
-              },
-            ]}
-          >
-
-            <Ionicons
-              name="mail-outline"
-              size={isMobile ? 23 : 25}
-              color="#4D6FB7"
-            />
-
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  fontSize: isMobile
-                    ? 16
-                    : 17,
-                },
-              ]}
-              placeholder="Masukkan email"
-              placeholderTextColor="#5875B5"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-
-          </View>
-
-
-          {/* ================================================= */}
-          {/* PASSWORD */}
-          {/* ================================================= */}
-
-          <Text
-            style={[
-              styles.label,
-              {
-                fontSize: isMobile
-                  ? 18
-                  : isTablet
-                    ? 19
-                    : 20,
-              },
-            ]}
-          >
-            Password
-          </Text>
-
-          <View
-            style={[
-              styles.inputContainer,
-              {
-                height: isMobile
-                  ? 56
-                  : isTablet
-                    ? 60
-                    : 62,
-              },
-            ]}
-          >
-
-            <Ionicons
-              name="lock-closed-outline"
-              size={isMobile ? 24 : 26}
-              color="#4D6FB7"
-            />
-
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  fontSize: isMobile
-                    ? 16
-                    : 17,
-                },
-              ]}
-              placeholder="Masukkan password"
-              placeholderTextColor="#5875B5"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-            />
-
-            <Pressable
-              onPress={() =>
-                setShowPassword(!showPassword)
-              }
-            >
-              <Ionicons
-                name={
-                  showPassword
-                    ? "eye-outline"
-                    : "eye-off-outline"
-                }
-                size={isMobile ? 24 : 26}
-                color="#4D6FB7"
-              />
-            </Pressable>
-
-          </View>
-
-
-          {/* ================================================= */}
-          {/* BUTTON LOGIN */}
-          {/* ================================================= */}
-
-          <Pressable
-            style={({ pressed }) => [
-              styles.button,
-              {
-                height: isMobile ? 56 : isTablet ? 62 : 64,
-                opacity: pressed ? 0.8 : 1,
-                transform: [{ scale: pressed ? 0.98 : 1 }],
-              },
-            ]}
-            onPress={handleLogin}
-          >
-            <Text
-              style={[
-                styles.buttonText,
-                {
-                  fontSize: isMobile
-                    ? 18
-                    : isTablet
-                      ? 19
-                      : 20,
-                },
-              ]}
-            >
-              Login
-            </Text>
-          </Pressable>
-
-
-          {/* ================================================= */}
-          {/* REGISTER */}
-          {/* ================================================= */}
-
-          <View
-            style={[
-              styles.registerContainer,
-              {
-                marginTop: isMobile
-                  ? 22
-                  : 25,
-              },
-            ]}
-          >
-
-            <Text
-              style={[
-                styles.registerText,
-                {
-                  fontSize: isMobile
-                    ? 16
-                    : 17,
-                },
-              ]}
-            >
-              Belum punya akun?
-            </Text>
-
-            <Pressable
-              onPress={() =>
-                router.push("/register")
-              }
-            >
-              <Text
-                style={[
-                  styles.registerLink,
-                  {
-                    fontSize: isMobile
-                      ? 16
-                      : 17,
-                  },
-                ]}
-              >
-                Daftar
-              </Text>
-            </Pressable>
-
-          </View>
-
-        </View>
-
-
-        {/* ================================================= */}
-        {/* FOOTER */}
-        {/* ================================================= */}
-
-        <Text
-          style={[
-            styles.footer,
-            {
-              fontSize: isMobile
-                ? 14
-                : 15,
-            },
-          ]}
-        >
-          Powered by TAGO
+        {/* Logo GOAI */}
+        <Image
+          source={require("../../assets/images/goai.png")}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+
+        <Text style={styles.title}>Selamat Datang</Text>
+        <Text style={styles.subtitle}>
+          Masuk untuk mendapatkan rekomendasi makanan.
         </Text>
 
+        {/* Input email */}
+        <Text style={styles.label}>Email</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Masukkan email"
+          placeholderTextColor="#999999"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
+
+        {/* Input password */}
+        <Text style={styles.label}>Password</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Masukkan password"
+          placeholderTextColor="#999999"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+        />
+
+        {/* Tombol login */}
+        <TouchableOpacity
+          style={[styles.button, loading && styles.buttonDisabled]}
+          onPress={handleLogin}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.buttonText}>Login</Text>
+          )}
+        </TouchableOpacity>
+
+        {/* Link ke halaman Register */}
+        <View style={styles.registerRow}>
+          <Text style={styles.normalText}>Belum punya akun? </Text>
+          <TouchableOpacity onPress={() => router.push("/register")}>
+            <Text style={styles.link}>Daftar</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Logo TAGO di bagian bawah */}
+        <View style={styles.footer}>
+          <Text style={styles.byText}>by</Text>
+          <Image
+            source={require("../../assets/images/logo_tago.jpg")}
+            style={styles.tagoLogo}
+            resizeMode="contain"
+          />
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-
-// =========================================================
-// STYLE
-// =========================================================
-
 const styles = StyleSheet.create({
-
-  // =======================================================
-  // CONTAINER
-  // =======================================================
-
   container: {
     flex: 1,
-    backgroundColor: "#EAF4FF",
-  },
-
-  scrollContainer: {
-    alignItems: "center",
-    paddingBottom: 30,
-  },
-
-
-  // =======================================================
-  // HEADER
-  // =======================================================
-
-  header: {
-    width: "100%",
-
-    backgroundColor: "#0647D8",
-
-    position: "relative",
-
-    overflow: "hidden",
-
-    borderBottomLeftRadius: 55,
-    borderBottomRightRadius: 55,
-  },
-
-
-  // =======================================================
-  // LOGO TAGO
-  // =======================================================
-
-  logoSection: {
-    position: "absolute",
-
-    alignItems: "flex-start",
-
-    zIndex: 10,
-  },
-
-  logo: {
-    width: 76,
-    height: 76,
-  },
-
-  tagoText: {
-    color: "#FFFFFF",
-
-    fontWeight: "800",
-
-    marginTop: 2,
-
-    includeFontPadding: false,
-  },
-
-
-  // =======================================================
-  // GAMBAR ORANG
-  // =======================================================
-
-  personImage: {
-    position: "absolute",
-
-    zIndex: 2,
-  },
-
-
-  // =======================================================
-  // HIASAN
-  // =======================================================
-
-  decorationOne: {
-    position: "absolute",
-
-    width: 8,
-    height: 30,
-
     backgroundColor: "#FFFFFF",
-
-    borderRadius: 10,
-
-    transform: [
-      {
-        rotate: "30deg",
-      },
-    ],
-
-    zIndex: 4,
   },
-
-  decorationTwo: {
-    position: "absolute",
-
-    width: 7,
-    height: 23,
-
-    backgroundColor: "#FFFFFF",
-
-    borderRadius: 10,
-
-    transform: [
-      {
-        rotate: "55deg",
-      },
-    ],
-
-    zIndex: 4,
-  },
-
-
-  // =======================================================
-  // HEADER TEXT
-  // =======================================================
-
-  headerText: {
-    position: "absolute",
-
-    zIndex: 5,
-  },
-
-  welcomeTitle: {
-    color: "#FFFFFF",
-
-    fontWeight: "800",
-
-    marginBottom: 8,
-
-    includeFontPadding: false,
-  },
-
-  welcomeSubtitle: {
-    color: "#FFFFFF",
-
-    fontWeight: "500",
-
-    includeFontPadding: false,
-  },
-
-
-  // =======================================================
-  // LOGIN CARD
-  // =======================================================
-
-  loginCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 28,
-    shadowColor: "#0647D8",
-    shadowOffset: {
-      width: 0,
-      height: 6,
-    },
-    shadowOpacity: 0.10,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-
-
-  // =======================================================
-  // LOGIN TITLE
-  // =======================================================
-
-  loginTitle: {
-    color: "#111827",
-
-    fontWeight: "800",
-
-    marginBottom: 4,
-  },
-
-  loginSubtitle: {
-    color: "#35588F",
-    marginBottom: 26,
-  },
-
-
-  // =======================================================
-  // LABEL
-  // =======================================================
-
-  label: {
-    color: "#101827",
-    fontWeight: "700",
-    marginBottom: 7,
-  },
-
-
-  // =======================================================
-  // INPUT
-  // =======================================================
-
-  inputContainer: {
-    width: "100%",
-    borderWidth: 1.5,
-    borderColor: "#8AB9FF",
-    borderRadius: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    marginBottom: 18,
-    backgroundColor: "#FBFDFF",
-  },
-
-  input: {
-    flex: 1,
-    color: "#111827",
-    marginLeft: 11,
-  },
-
-
-  // =======================================================
-  // LOGIN BUTTON
-  // =======================================================
-
-  button: {
-    width: "100%",
-    backgroundColor: "#0647D8",
-    borderRadius: 15,
+  content: {
+    flexGrow: 1,
     justifyContent: "center",
-    alignItems: "center",
-    marginTop: 2,
+    paddingHorizontal: 28,
+    paddingVertical: 32,
   },
-
+  logo: {
+    width: 110,
+    height: 110,
+    alignSelf: "center",
+    marginBottom: 28,
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: "bold",
+    color: "#202020",
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: "#777777",
+    lineHeight: 21,
+    marginBottom: 28,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333333",
+    marginBottom: 8,
+  },
+  input: {
+    height: 50,
+    borderWidth: 1,
+    borderColor: "#DDDDDD",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    fontSize: 15,
+    color: "#222222",
+    marginBottom: 18,
+  },
+  button: {
+    height: 50,
+    backgroundColor: "#2439C6",
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 6,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
+  },
   buttonText: {
     color: "#FFFFFF",
-    fontWeight: "800",
+    fontSize: 16,
+    fontWeight: "bold",
   },
-
-
-  // =======================================================
-  // REGISTER
-  // =======================================================
-
-  registerContainer: {
+  registerRow: {
     flexDirection: "row",
     justifyContent: "center",
-    alignItems: "center",
+    marginTop: 22,
   },
-
-  registerText: {
-    color: "#35588F",
+  normalText: {
+    fontSize: 14,
+    color: "#777777",
   },
-
-  registerLink: {
-    color: "#0647D8",
-    fontWeight: "800",
-    marginLeft: 7,
+  link: {
+    fontSize: 14,
+    color: "#2439C6",
+    fontWeight: "bold",
   },
-
-
-  // =======================================================
-  // FOOTER
-  // =======================================================
-
   footer: {
-    color: "#5273A7",
-    marginTop: 18,
-    textAlign: "center",
-    marginBottom: 5,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 42,
+  },
+  byText: {
+    fontSize: 13,
+    color: "#777777",
+    marginRight: 8,
+  },
+  tagoLogo: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
   },
 });

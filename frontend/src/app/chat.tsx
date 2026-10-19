@@ -1,217 +1,133 @@
-﻿import { API_URL } from "@/constants/api";
-import * as Location from "expo-location";
+﻿import Ionicons from "@expo/vector-icons/Ionicons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
+  Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { colors } from "../constants/palette";
+import { Rec, getConversation, sendMessage } from "../services/chat";
 
-type ChatMessage = {
+type Msg = {
+  id: string;
+  role: "user" | "ai";
   text: string;
-  sender: "user" | "ai";
+  recs?: Rec[];
+  failed?: boolean;
 };
 
+const EXAMPLES = [
+  "Makanan pedas tapi hemat",
+  "Sarapan sehat yang cepat",
+  "Mie kuah untuk malam hujan",
+];
+
 export default function ChatScreen() {
-  const { conversationId: paramConversationId } = useLocalSearchParams();
+  const insets = useSafeAreaInsets();
+  const { id, fresh } = useLocalSearchParams<{ id?: string; fresh?: string }>();
+  const listRef = useRef<FlatList<Msg>>(null);
 
-  const [message, setMessage] = useState("");
-
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      text: "Halo! 👋 Mau makan apa hari ini?",
-      sender: "ai",
-    },
-  ]);
-
-  const [conversationId, setConversationId] = useState<number | null>(
-    paramConversationId ? Number(paramConversationId) : null,
-  );
-
-  const [isLoading, setIsLoading] = useState(false);
-
-  const [quickReplies, setQuickReplies] = useState<string[]>([]);
-
-  const [isLoadingConversation, setIsLoadingConversation] = useState(false);
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [convId, setConvId] = useState<string | undefined>(id);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [user, setUser] = useState({ name: "User", email: "" });
 
   useEffect(() => {
-    if (!paramConversationId) {
-      return;
-    }
+    (async () => {
+      const name = await AsyncStorage.getItem("userName");
+      const email = await AsyncStorage.getItem("userEmail");
+      setUser({ name: name || "User", email: email || "" });
+    })();
+  }, []);
 
-    const getConversation = async () => {
-      try {
-        setIsLoadingConversation(true);
+  // Buka percakapan lama (id) atau mulai baru (fresh).
+  useEffect(() => {
+    setConvId(id);
+    setMessages([]);
+    setSuggestions([]);
+    if (!id) return;
+    setLoading(true);
+    getConversation(id)
+      .then((c) =>
+        setMessages(
+          c.messages.map((m) => ({
+            id: m.id,
+            role: m.role,
+            text: m.text,
+            recs: m.recommendations,
+          }))
+        )
+      )
+      .catch((e) => Alert.alert("Gagal memuat", e.message))
+      .finally(() => setLoading(false));
+  }, [id, fresh]);
 
-        const token = await AsyncStorage.getItem("token");
+  const send = async (raw: string) => {
+    const text = raw.trim();
+    if (!text || sending) return;
 
-        if (!token) {
-          Alert.alert("Sesi berakhir", "Silakan login kembali.");
-
-          router.replace("/login");
-          return;
-        }
-
-        const response = await fetch(
-          `${API_URL}/api/chat/${paramConversationId}`,
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          },
-        );
-
-        const result = await response.json();
-
-        console.log("Detail Conversation:", JSON.stringify(result, null, 2));
-
-        if (result.success) {
-          setConversationId(result.data.id);
-
-          const conversationMessages = result.data.messages.map(
-            (item: { role: "user" | "assistant"; content: string }) => ({
-              text: item.content,
-              sender: item.role === "user" ? "user" : "ai",
-            }),
-          );
-
-          setMessages(conversationMessages);
-        } else {
-          Alert.alert("Gagal", result.message || "Gagal mengambil percakapan.");
-        }
-      } catch (error) {
-        console.log("Error Detail Conversation:", error);
-
-        Alert.alert("Tidak dapat terhubung", "Server belum dapat diakses.");
-      } finally {
-        setIsLoadingConversation(false);
-      }
-    };
-
-    getConversation();
-  }, [paramConversationId]);
-
-  const handleSend = async () => {
-    if (message.trim() === "") {
-      return;
-    }
-
-    const userMessage = message.trim();
-
-    setMessages((prevMessages) => [
-      ...prevMessages,
-      {
-        text: userMessage,
-        sender: "user",
-      },
-    ]);
-
-    setMessage("");
-    setIsLoading(true);
-    setQuickReplies([]);
+    const userMsg: Msg = { id: `u${Date.now()}`, role: "user", text };
+    setMessages((p) => [...p, userMsg]);
+    setInput("");
+    setSuggestions([]);
+    setSending(true);
 
     try {
-      const token = await AsyncStorage.getItem("token");
-
-      if (!token) {
-        Alert.alert("Sesi berakhir", "Silakan login kembali.");
-
-        router.replace("/login");
-        return;
-      }
-
-      let locationPayload = {};
-
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-
-        if (status === "granted") {
-          const position = await Location.getCurrentPositionAsync({});
-
-          locationPayload = {
-            lat: position.coords.latitude,
-            lon: position.coords.longitude,
-          };
-          console.log("LOKASI DIDAPAT:", JSON.stringify(locationPayload));
-        }
-      } catch (locationError) {
-        console.log("Lokasi tidak tersedia:", locationError);
-      }
-
-      const response = await fetch(`${API_URL}/api/chat`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          message: userMessage,
-          ...locationPayload,
-        }),
-      });
-
-      const result = await response.json();
-
-      console.log("Hasil Chat AI:", JSON.stringify(result, null, 2));
-
-      if (result.answer) {
-        setMessages((prevMessages) => [
-          ...prevMessages,
-          {
-            text: result.answer,
-            sender: "ai",
-          },
-        ]);
-
-        setQuickReplies(
-          Array.isArray(result.quick_replies) ? result.quick_replies : [],
-        );
-      } else {
-        setMessages((prevMessages) => [
-          ...prevMessages,
-          {
-            text: result.message || "AI gagal memberikan jawaban.",
-            sender: "ai",
-          },
-        ]);
-      }
-    } catch (error) {
-      console.log("Error Chat AI:", error);
-
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        {
-          text: "Tidak dapat terhubung ke server.",
-          sender: "ai",
-        },
+      const r = await sendMessage(text, convId);
+      setConvId(r.conversationId);
+      setMessages((p) => [
+        ...p,
+        { id: `a${Date.now()}`, role: "ai", text: r.reply, recs: r.recommendations },
       ]);
+      setSuggestions(r.suggestions ?? []);
+    } catch {
+      setMessages((p) =>
+        p.map((m) => (m.id === userMsg.id ? { ...m, failed: true } : m))
+      );
     } finally {
-      setIsLoading(false);
+      setSending(false);
     }
   };
 
-  const handleNewChat = () => {
-    setMessages([
+  const retry = (m: Msg) => {
+    setMessages((p) => p.filter((x) => x.id !== m.id));
+    send(m.text);
+  };
+
+  const openHistory = () => {
+    setMenuOpen(false);
+    router.push("/history");
+  };
+
+  const logout = () => {
+    setMenuOpen(false);
+    Alert.alert("Logout", "Yakin ingin keluar?", [
+      { text: "Batal", style: "cancel" },
       {
-        text: "Halo! 👋 Mau makan apa hari ini?",
-        sender: "ai",
+        text: "Logout",
+        style: "destructive",
+        onPress: async () => {
+          await AsyncStorage.multiRemove(["token", "userName", "userEmail"]);
+          router.replace("/login");
+        },
       },
     ]);
-
-    setMessage("");
-    setConversationId(null);
-
-    router.replace("/chat");
   };
 
   return (
@@ -219,260 +135,214 @@ export default function ChatScreen() {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <View style={styles.header}>
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+        <View style={styles.logoWrap}>
+          <Image source={require("../../assets/images/goai.png")} style={styles.logo} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.title}>GoAI</Text>
+          <Text style={styles.subtitle}>Asisten rekomendasi makanan</Text>
+        </View>
         <Pressable
-          style={styles.backButton}
-          onPress={() => router.replace("/home")}
+          accessibilityLabel="Riwayat chat"
+          style={styles.iconBtn}
+          onPress={openHistory}
         >
-          <Text style={styles.backText}>‹</Text>
+          <Ionicons name="time-outline" size={22} color="#fff" />
         </Pressable>
-
-        <Text style={styles.title}>TAGO AI</Text>
-
-        <Pressable style={styles.newChatButton} onPress={handleNewChat}>
-          <Text style={styles.newChatText}>Chat Baru</Text>
+        <Pressable
+          accessibilityLabel="Menu akun"
+          style={[styles.iconBtn, menuOpen && styles.iconBtnOn]}
+          onPress={() => setMenuOpen(true)}
+        >
+          <Ionicons name="person-outline" size={22} color={menuOpen ? colors.primary : "#fff"} />
         </Pressable>
       </View>
 
-      {isLoadingConversation ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#023E8A" />
-
-          <Text style={styles.loadingText}>Memuat percakapan...</Text>
+      {/* Pesan */}
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator color={colors.primary} />
         </View>
       ) : (
-        <>
-          <ScrollView
-            style={styles.chatArea}
-            contentContainerStyle={styles.chatContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            {messages.map((item, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.messageBubble,
-                  item.sender === "user" ? styles.userBubble : styles.aiBubble,
-                ]}
-              >
-                <Text
-                  style={
-                    item.sender === "user" ? styles.userText : styles.aiText
-                  }
-                >
-                  {item.text}
-                </Text>
-              </View>
-            ))}
-
-            {isLoading && (
-              <View style={[styles.messageBubble, styles.aiBubble]}>
-                <Text style={styles.aiText}>AI sedang mengetik...</Text>
-              </View>
-            )}
-          </ScrollView>
-
-          {quickReplies.length > 0 && !isLoading && (
-            <View style={styles.quickReplyContainer}>
-              {quickReplies.map((reply, index) => (
-                <Pressable
-                  key={index}
-                  style={styles.quickReplyButton}
-                  onPress={() => {
-                    setMessage(reply);
-                    setQuickReplies([]);
-                  }}
-                >
-                  <Text style={styles.quickReplyText}>{reply}</Text>
-                </Pressable>
-              ))}
-            </View>
+        <FlatList
+          ref={listRef}
+          data={messages}
+          keyExtractor={(m) => m.id}
+          contentContainerStyle={styles.list}
+          keyboardShouldPersistTaps="handled"
+          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+          ListEmptyComponent={
+            <EmptyState name={user.name} onPick={(t) => send(t)} />
+          }
+          renderItem={({ item }) => (
+            <MessageItem msg={item} onRetry={() => retry(item)} />
           )}
+          ListFooterComponent={
+            <View>
+              {sending && <Typing />}
+              {!sending && suggestions.length > 0 && (
+                <View style={styles.chips}>
+                  {suggestions.map((s) => (
+                    <Pressable key={s} style={styles.chip} onPress={() => send(s)}>
+                      <Text style={styles.chipText}>{s}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+            </View>
+          }
+        />
+      )}
 
-          <View style={styles.inputArea}>
-            <TextInput
-              style={styles.input}
-              placeholder="Tulis pesan..."
-              placeholderTextColor="#888"
-              value={message}
-              onChangeText={setMessage}
-              multiline
-              textAlignVertical="top"
-              returnKeyType="default"
-            />
+      {/* Input */}
+      <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <TextInput
+          style={styles.input}
+          placeholder="Tulis pesan…"
+          placeholderTextColor={colors.muted}
+          value={input}
+          onChangeText={setInput}
+          multiline
+          maxLength={1000}
+        />
+        <Pressable
+          accessibilityLabel="Kirim"
+          style={[styles.sendBtn, (!input.trim() || sending) && { opacity: 0.5 }]}
+          disabled={!input.trim() || sending}
+          onPress={() => send(input)}
+        >
+          <Ionicons name="send" size={20} color="#fff" />
+        </Pressable>
+      </View>
 
-            <Pressable
-              style={[styles.sendButton, isLoading && styles.buttonDisabled]}
-              onPress={handleSend}
-              disabled={isLoading}
-            >
-              <Text style={styles.sendText}>Kirim</Text>
+      {/* Menu akun */}
+      <Modal transparent visible={menuOpen} animationType="fade" onRequestClose={() => setMenuOpen(false)}>
+        <Pressable style={styles.overlay} onPress={() => setMenuOpen(false)}>
+          <View style={[styles.menu, { top: insets.top + 76 }]}>
+            <View style={styles.menuHead}>
+              <Text style={styles.menuName}>{user.name}</Text>
+              {!!user.email && <Text style={styles.menuEmail}>{user.email}</Text>}
+            </View>
+            <View style={styles.divider} />
+            <Pressable style={styles.menuItem} onPress={openHistory}>
+              <Ionicons name="time-outline" size={20} color={colors.ink} />
+              <Text style={styles.menuText}>Riwayat Chat</Text>
+            </Pressable>
+            <Pressable style={styles.menuItem} onPress={logout}>
+              <Ionicons name="log-out-outline" size={20} color={colors.danger} />
+              <Text style={[styles.menuText, { color: colors.danger }]}>Logout</Text>
             </Pressable>
           </View>
-        </>
-      )}
+        </Pressable>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
 
+function MessageItem({ msg, onRetry }: { msg: Msg; onRetry: () => void }) {
+  const mine = msg.role === "user";
+  return (
+    <View style={{ alignItems: mine ? "flex-end" : "flex-start", marginBottom: 14 }}>
+      <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleAi]}>
+        <Text style={[styles.bubbleText, mine && { color: colors.onPrimary }]}>{msg.text}</Text>
+        {!mine &&
+          msg.recs?.map((r) => (
+            <View key={r.name} style={styles.rec}>
+              <View style={styles.recThumb}>
+                {r.imageUrl ? (
+                  <Image source={{ uri: r.imageUrl }} style={styles.recImg} />
+                ) : (
+                  <Ionicons name="restaurant-outline" size={24} color={colors.primary} />
+                )}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.recName}>{r.name}</Text>
+                <Text style={styles.recReason}>{r.reason}</Text>
+              </View>
+            </View>
+          ))}
+      </View>
+      {msg.failed && (
+        <Pressable onPress={onRetry} style={styles.failed}>
+          <Ionicons name="alert-circle" size={14} color={colors.danger} />
+          <Text style={styles.failedText}>Gagal terkirim. Ketuk untuk coba lagi.</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+function Typing() {
+  return (
+    <View style={[styles.bubble, styles.bubbleAi, { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 8 }]}>
+      <ActivityIndicator size="small" color={colors.primary} />
+      <Text style={[styles.bubbleText, { color: colors.muted }]}>GoAI sedang mengetik…</Text>
+    </View>
+  );
+}
+
+function EmptyState({ name, onPick }: { name: string; onPick: (t: string) => void }) {
+  return (
+    <View style={styles.empty}>
+      <View style={styles.emptyCircle}>
+        <Image source={require("../../assets/images/goai.png")} style={{ width: 96, height: 96, borderRadius: 24 }} />
+      </View>
+      <Text style={styles.emptyTitle}>Hai, {name}!</Text>
+      <Text style={styles.emptySub}>Mau makan apa hari ini?</Text>
+      <View style={{ alignSelf: "stretch", gap: 10, marginTop: 16 }}>
+        {EXAMPLES.map((t) => (
+          <Pressable key={t} style={styles.example} onPress={() => onPick(t)}>
+            <Text style={styles.exampleText}>{t}</Text>
+            <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "white",
-    paddingHorizontal: 20,
-    paddingTop: 15,
-  },
-
-  header: {
-    height: 55,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E3E9F1",
-    marginBottom: 10,
-  },
-
-  backButton: {
-    width: 45,
-    alignItems: "flex-start",
-    justifyContent: "center",
-  },
-
-  backText: {
-    fontSize: 40,
-    color: "#023E8A",
-    lineHeight: 40,
-  },
-
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#023E8A",
-  },
-
-  newChatButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 5,
-  },
-
-  newChatText: {
-    color: "#023E8A",
-    fontSize: 14,
-    fontWeight: "bold",
-  },
-
-  chatArea: {
-    flex: 1,
-  },
-
-  chatContent: {
-    paddingVertical: 15,
-    paddingBottom: 10,
-  },
-
-  messageBubble: {
-    paddingVertical: 11,
-    paddingHorizontal: 14,
-    borderRadius: 16,
-    marginBottom: 12,
-    maxWidth: "78%",
-  },
-
-  aiBubble: {
-    backgroundColor: "#E3E9F1",
-    alignSelf: "flex-start",
-  },
-
-  userBubble: {
-    backgroundColor: "#023E8A",
-    alignSelf: "flex-end",
-  },
-
-  aiText: {
-    color: "#222",
-    fontSize: 15,
-    lineHeight: 21,
-  },
-
-  userText: {
-    color: "white",
-    fontSize: 15,
-    lineHeight: 21,
-  },
-
-  inputArea: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    paddingTop: 10,
-    paddingBottom: 10,
-    gap: 10,
-    backgroundColor: "white",
-  },
-
-  input: {
-    flex: 1,
-    minHeight: 45,
-    maxHeight: 90,
-    borderWidth: 1,
-    borderColor: "#D0D5DC",
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    fontSize: 15,
-    backgroundColor: "white",
-  },
-
-  sendButton: {
-    height: 45,
-    backgroundColor: "#023E8A",
-    paddingHorizontal: 18,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  sendText: {
-    color: "white",
-    fontSize: 15,
-    fontWeight: "bold",
-  },
-
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  loadingText: {
-    marginTop: 10,
-    fontSize: 14,
-    color: "#777",
-  },
-
-  quickReplyContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    paddingBottom: 10,
-  },
-
-  quickReplyButton: {
-    borderWidth: 1,
-    borderColor: "#023E8A",
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-  },
-
-  quickReplyText: {
-    color: "#023E8A",
-    fontSize: 13,
-    fontWeight: "600",
-  },
+  container: { flex: 1, backgroundColor: colors.bg },
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  header: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingBottom: 14, backgroundColor: colors.primary },
+  logoWrap: { backgroundColor: "#fff", borderRadius: 12, padding: 3 },
+  logo: { width: 36, height: 36, borderRadius: 9 },
+  title: { color: "#fff", fontSize: 18, fontWeight: "700" },
+  subtitle: { color: "rgba(255,255,255,0.85)", fontSize: 12 },
+  iconBtn: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.14)", borderWidth: 1, borderColor: "rgba(255,255,255,0.35)" },
+  iconBtnOn: { backgroundColor: "#fff" },
+  list: { flexGrow: 1, padding: 20 },
+  bubble: { maxWidth: "85%", paddingVertical: 12, paddingHorizontal: 16, gap: 10 },
+  bubbleMine: { backgroundColor: colors.primary, borderRadius: 24, borderBottomRightRadius: 6 },
+  bubbleAi: { backgroundColor: colors.card, borderRadius: 24, borderBottomLeftRadius: 6, borderWidth: 1, borderColor: colors.border },
+  bubbleText: { fontSize: 15, lineHeight: 22, color: colors.ink },
+  rec: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: colors.soft, borderRadius: 12, padding: 10 },
+  recThumb: { width: 52, height: 52, borderRadius: 12, backgroundColor: colors.card, alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  recImg: { width: 52, height: 52 },
+  recName: { fontSize: 14, fontWeight: "700", color: colors.ink },
+  recReason: { fontSize: 13, color: colors.muted, marginTop: 2 },
+  failed: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6 },
+  failedText: { fontSize: 12, color: colors.danger },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 },
+  chip: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1, borderColor: colors.primary },
+  chipText: { fontSize: 13, fontWeight: "600", color: colors.ink },
+  inputBar: { flexDirection: "row", alignItems: "flex-end", gap: 10, paddingHorizontal: 20, paddingTop: 12, backgroundColor: colors.card, borderTopWidth: 1, borderTopColor: colors.border },
+  input: { flex: 1, maxHeight: 120, minHeight: 48, borderRadius: 24, backgroundColor: colors.soft, paddingHorizontal: 18, paddingTop: 13, paddingBottom: 13, fontSize: 15, color: colors.ink },
+  sendBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
+  overlay: { flex: 1, backgroundColor: colors.overlay },
+  menu: { position: "absolute", right: 16, width: 272, backgroundColor: colors.card, borderRadius: 20, padding: 8, elevation: 12, shadowColor: "#000", shadowOpacity: 0.25, shadowRadius: 16, shadowOffset: { width: 0, height: 8 } },
+  menuHead: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 12 },
+  menuName: { fontSize: 16, fontWeight: "700", color: colors.ink },
+  menuEmail: { fontSize: 13, color: colors.muted, marginTop: 2 },
+  divider: { height: 1, backgroundColor: colors.border, marginHorizontal: 6, marginBottom: 6 },
+  menuItem: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 12 },
+  menuText: { fontSize: 15, fontWeight: "600", color: colors.ink },
+  empty: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 24 },
+  emptyCircle: { width: 168, height: 168, borderRadius: 84, backgroundColor: colors.soft, alignItems: "center", justifyContent: "center", marginBottom: 12 },
+  emptyTitle: { fontSize: 24, fontWeight: "700", color: colors.ink },
+  emptySub: { fontSize: 15, color: colors.muted, marginTop: 4 },
+  example: { flexDirection: "row", alignItems: "center", backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 16 },
+  exampleText: { flex: 1, fontSize: 14, fontWeight: "600", color: colors.ink },
 });

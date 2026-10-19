@@ -1,253 +1,184 @@
-import { API_URL } from "@/constants/api";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Pressable,
-  ScrollView,
+  RefreshControl,
+  SectionList,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { colors } from "../constants/palette";
+import { ConversationItem, deleteConversation, listConversations } from "../services/chat";
 
-type ChatHistory = {
-  id: number;
-  title: string;
-  userId: number;
-  createdAt: string;
-  updatedAt: string;
-};
+const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+const pad = (n: number) => String(n).padStart(2, "0");
+
+function groupName(iso: string) {
+  const diff = (dayStart(new Date()) - dayStart(new Date(iso))) / 86400000;
+  return diff <= 0 ? "Hari ini" : diff === 1 ? "Kemarin" : "Sebelumnya";
+}
+
+function timeLabel(iso: string) {
+  const d = new Date(iso);
+  return groupName(iso) === "Sebelumnya"
+    ? `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`
+    : `${pad(d.getHours())}.${pad(d.getMinutes())}`;
+}
 
 export default function HistoryScreen() {
-  const [chatHistory, setChatHistory] = useState<ChatHistory[]>([]);
+  const insets = useSafeAreaInsets();
+  const [items, setItems] = useState<ConversationItem[]>([]);
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
 
-  const [isLoading, setIsLoading] = useState(true);
-
-  const getHistory = async () => {
+  const load = useCallback(async (pull = false) => {
+    pull ? setRefreshing(true) : setLoading(true);
+    setError("");
     try {
-      const token = await AsyncStorage.getItem("token");
-
-      if (!token) {
-        Alert.alert("Sesi berakhir", "Silakan login kembali.");
-
-        router.replace("/login");
-        return;
-      }
-
-      const response = await fetch(`${API_URL}/api/chat`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const result = await response.json();
-
-      console.log("History Chat:", result);
-
-      if (result.success) {
-        setChatHistory(result.data);
-      } else {
-        Alert.alert("Gagal", result.message || "Gagal mengambil riwayat chat.");
-      }
-    } catch (error) {
-      console.log("Error History:", error);
-
-      Alert.alert("Tidak dapat terhubung", "Server belum dapat diakses.");
+      const data = await listConversations();
+      setItems([...data].sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt)));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gagal memuat riwayat.");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
+      setRefreshing(false);
     }
-  };
-
-  useEffect(() => {
-    getHistory();
   }, []);
 
-  const formatDate = (date: string) => {
-    const result = new Date(date);
+  useEffect(() => {
+    load();
+  }, [load]);
 
-    return result.toLocaleDateString("id-ID", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
-  };
+  const sections = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const filtered = q
+      ? items.filter((i) => `${i.title} ${i.lastMessage}`.toLowerCase().includes(q))
+      : items;
+    const order = ["Hari ini", "Kemarin", "Sebelumnya"];
+    return order
+      .map((title) => ({ title, data: filtered.filter((i) => groupName(i.updatedAt) === title) }))
+      .filter((s) => s.data.length > 0);
+  }, [items, query]);
+
+  const open = (id: string) =>
+    router.dismissTo({ pathname: "/chat", params: { id } });
+
+  const newChat = () =>
+    router.dismissTo({ pathname: "/chat", params: { fresh: String(Date.now()) } });
+
+  const remove = (item: ConversationItem) =>
+    Alert.alert("Hapus percakapan", `Hapus "${item.title}"?`, [
+      { text: "Batal", style: "cancel" },
+      {
+        text: "Hapus",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await deleteConversation(item.id);
+            setItems((p) => p.filter((i) => i.id !== item.id));
+          } catch (e) {
+            Alert.alert("Gagal menghapus", e instanceof Error ? e.message : "Coba lagi.");
+          }
+        },
+      },
+    ]);
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.replace("/home")}>
-          <Text style={styles.backButton}>‹</Text>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+        <Pressable accessibilityLabel="Kembali" style={styles.iconBtn} onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={22} color="#fff" />
         </Pressable>
-
         <Text style={styles.title}>Riwayat Chat</Text>
-
-        <View style={styles.placeholder} />
       </View>
 
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#023E8A" />
+      <View style={styles.search}>
+        <Ionicons name="search" size={20} color={colors.muted} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Cari percakapan"
+          placeholderTextColor={colors.muted}
+          value={query}
+          onChangeText={setQuery}
+        />
+      </View>
 
-          <Text style={styles.loadingText}>Memuat riwayat chat...</Text>
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator color={colors.primary} />
         </View>
-      ) : chatHistory.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyTitle}>Belum ada riwayat chat</Text>
-
-          <Text style={styles.emptyText}>
-            Mulai percakapan dengan Food AI untuk melihat riwayat di sini.
-          </Text>
-
-          <Pressable
-            style={styles.startButton}
-            onPress={() => router.push("/chat")}
-          >
-            <Text style={styles.startButtonText}>Mulai Chat</Text>
+      ) : error ? (
+        <View style={styles.center}>
+          <Text style={styles.emptyTitle}>Riwayat tidak bisa dimuat</Text>
+          <Text style={styles.emptySub}>{error}</Text>
+          <Pressable style={styles.retry} onPress={() => load()}>
+            <Text style={styles.retryText}>Coba lagi</Text>
           </Pressable>
         </View>
       ) : (
-        <ScrollView showsVerticalScrollIndicator={false}>
-          {chatHistory.map((chat) => (
-            <Pressable
-              key={chat.id}
-              style={styles.chatItem}
-              onPress={() =>
-                router.push({
-                  pathname: "/chat",
-                  params: {
-                    conversationId: chat.id.toString(),
-                  },
-                })
-              }
-            >
-              <View style={styles.chatInfo}>
-                <Text style={styles.chatTitle}>{chat.title}</Text>
-
-                <Text style={styles.chatDate}>
-                  {formatDate(chat.createdAt)}
-                </Text>
+        <SectionList
+          sections={sections}
+          keyExtractor={(i) => i.id}
+          contentContainerStyle={{ padding: 20, paddingBottom: 120, flexGrow: 1 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={colors.primary} />}
+          stickySectionHeadersEnabled={false}
+          ListEmptyComponent={
+            <View style={styles.center}>
+              <Text style={styles.emptyTitle}>{query ? "Tidak ada hasil" : "Belum ada percakapan"}</Text>
+              <Text style={styles.emptySub}>
+                {query ? "Coba kata kunci lain." : "Mulai chat baru untuk mendapat rekomendasi makanan."}
+              </Text>
+            </View>
+          }
+          renderSectionHeader={({ section }) => <Text style={styles.group}>{section.title}</Text>}
+          renderItem={({ item }) => (
+            <Pressable style={styles.row} onPress={() => open(item.id)} onLongPress={() => remove(item)}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.rowTitle} numberOfLines={1}>{item.title}</Text>
+                <Text style={styles.rowSub} numberOfLines={1}>{item.lastMessage}</Text>
               </View>
-
-              <Text style={styles.arrow}>›</Text>
+              <Text style={styles.time}>{timeLabel(item.updatedAt)}</Text>
+              <Pressable accessibilityLabel="Hapus" hitSlop={10} onPress={() => remove(item)}>
+                <Ionicons name="trash-outline" size={20} color={colors.muted} />
+              </Pressable>
             </Pressable>
-          ))}
-        </ScrollView>
+          )}
+        />
       )}
+
+      <Pressable style={[styles.fab, { bottom: Math.max(insets.bottom, 12) + 16 }]} onPress={newChat}>
+        <Ionicons name="add" size={22} color="#fff" />
+        <Text style={styles.fabText}>Chat Baru</Text>
+      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "white",
-    padding: 20,
-  },
-
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 20,
-  },
-
-  backButton: {
-    fontSize: 40,
-    color: "#023E8A",
-    lineHeight: 40,
-  },
-
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#023E8A",
-  },
-
-  placeholder: {
-    width: 30,
-  },
-
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  loadingText: {
-    marginTop: 10,
-    fontSize: 14,
-    color: "#777",
-  },
-
-  emptyContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 20,
-  },
-
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#222",
-    textAlign: "center",
-  },
-
-  emptyText: {
-    fontSize: 14,
-    color: "#777",
-    textAlign: "center",
-    lineHeight: 21,
-    marginTop: 10,
-  },
-
-  startButton: {
-    backgroundColor: "#023E8A",
-    paddingVertical: 13,
-    paddingHorizontal: 35,
-    borderRadius: 10,
-    marginTop: 25,
-  },
-
-  startButtonText: {
-    color: "white",
-    fontSize: 15,
-    fontWeight: "bold",
-  },
-
-  chatItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#E3E9F1",
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-
-  chatInfo: {
-    flex: 1,
-  },
-
-  chatTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#222",
-  },
-
-  chatDate: {
-    fontSize: 13,
-    color: "#777",
-    marginTop: 5,
-  },
-
-  arrow: {
-    fontSize: 28,
-    color: "#023E8A",
-    marginLeft: 10,
-  },
+  container: { flex: 1, backgroundColor: colors.bg },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
+  header: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingBottom: 14, backgroundColor: colors.primary },
+  iconBtn: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.14)", borderWidth: 1, borderColor: "rgba(255,255,255,0.35)" },
+  title: { color: "#fff", fontSize: 18, fontWeight: "700" },
+  search: { flexDirection: "row", alignItems: "center", gap: 10, height: 48, borderRadius: 24, backgroundColor: colors.soft, marginHorizontal: 20, marginTop: 20, paddingHorizontal: 16 },
+  searchInput: { flex: 1, fontSize: 14, color: colors.ink },
+  group: { fontSize: 13, fontWeight: "700", color: colors.muted, marginTop: 16, marginBottom: 10 },
+  row: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 18, paddingVertical: 14, paddingHorizontal: 16, marginBottom: 10 },
+  rowTitle: { fontSize: 15, fontWeight: "700", color: colors.ink },
+  rowSub: { fontSize: 13, color: colors.muted, marginTop: 3 },
+  time: { fontSize: 12, color: colors.muted },
+  emptyTitle: { fontSize: 17, fontWeight: "700", color: colors.ink, textAlign: "center" },
+  emptySub: { fontSize: 14, color: colors.muted, marginTop: 6, textAlign: "center" },
+  retry: { marginTop: 16, height: 44, paddingHorizontal: 24, borderRadius: 22, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
+  retryText: { color: "#fff", fontWeight: "700" },
+  fab: { position: "absolute", right: 20, height: 52, paddingHorizontal: 22, borderRadius: 26, backgroundColor: colors.primary, flexDirection: "row", alignItems: "center", gap: 8, elevation: 6, shadowColor: colors.primary, shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 6 } },
+  fabText: { color: "#fff", fontSize: 15, fontWeight: "700" },
 });
