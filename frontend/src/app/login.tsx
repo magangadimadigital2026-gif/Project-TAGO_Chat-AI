@@ -52,14 +52,14 @@ export default function Login() {
       if (!response.ok) {
         Alert.alert(
           "Login Gagal",
-          result.message || "Email atau password salah."
+          result.message || "Email atau password salah.",
         );
         return;
       }
 
       // Mengambil token dan data pengguna
-      const token = result.data?.token;
-      const user = result.data?.user;
+      const token = result.data?.token ?? result.token;
+      const user = result.data?.user ?? result.user;
 
       if (!token) {
         Alert.alert("Login Gagal", "Token tidak ditemukan dari server.");
@@ -82,7 +82,7 @@ export default function Login() {
     } catch {
       Alert.alert(
         "Gagal",
-        "Tidak dapat terhubung ke server. Periksa koneksi Backend."
+        "Tidak dapat terhubung ke server. Periksa koneksi Backend.",
       );
     } finally {
       setLoading(false);
