@@ -30,9 +30,7 @@ export type StoredMessage = {
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = await AsyncStorage.getItem("token");
   const controller = new AbortController();
-  // Model lokal bisa lambat, beri waktu 60 detik.
   const timer = setTimeout(() => controller.abort(), 60000);
-
   try {
     const res = await fetch(`${API_URL}${path}`, {
       ...init,
@@ -43,24 +41,63 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       },
     });
     const json = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(json.message || "Terjadi kesalahan.");
-    return json.data as T;
+    if (!res.ok)
+      throw new Error(json.message || json.error || "Terjadi kesalahan.");
+    return (json.data ?? json) as T;
   } finally {
     clearTimeout(timer);
   }
 }
 
-export const sendMessage = (message: string, conversationId?: string) =>
-  request<ChatReply>("/api/chat", {
-    method: "POST",
-    body: JSON.stringify({ message, conversationId }),
-  });
+export const sendMessage = async (
+  message: string,
+  conversationId?: string,
+): Promise<ChatReply> => {
+  const r = await request<{ answer: string; quick_replies?: string[] }>(
+    "/api/chat",
+    { method: "POST", body: JSON.stringify({ message }) },
+  );
+  return {
+    conversationId: conversationId ?? "default",
+    reply: r.answer,
+    suggestions: r.quick_replies ?? [],
+  };
+};
 
-export const listConversations = () =>
-  request<ConversationItem[]>("/api/conversations");
+type HistoryRow = {
+  id: number | string;
+  role: string;
+  content: string;
+  createdAt: string;
+};
 
-export const getConversation = (id: string) =>
-  request<{ id: string; messages: StoredMessage[] }>(`/api/conversations/${id}`);
+const loadHistory = async () =>
+  (await request<{ messages: HistoryRow[] }>("/api/chat/history")).messages;
 
-export const deleteConversation = (id: string) =>
-  request<null>(`/api/conversations/${id}`, { method: "DELETE" });
+export const listConversations = async (): Promise<ConversationItem[]> => {
+  const rows = await loadHistory();
+  if (rows.length === 0) return [];
+  const first = rows.find((m) => m.role === "user") ?? rows[0];
+  const last = rows[rows.length - 1];
+  return [
+    {
+      id: "default",
+      title: first.content.slice(0, 40),
+      lastMessage: last.content.slice(0, 80),
+      updatedAt: last.createdAt,
+    },
+  ];
+};
+
+export const getConversation = async (id: string) => ({
+  id,
+  messages: (await loadHistory()).map(
+    (m): StoredMessage => ({
+      id: String(m.id),
+      role: m.role === "assistant" ? "ai" : "user",
+      text: m.content,
+    }),
+  ),
+});
+
+export const deleteConversation = async (_id: string): Promise<null> => null;
