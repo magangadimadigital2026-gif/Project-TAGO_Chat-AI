@@ -6,14 +6,15 @@ import {
   TouchableOpacity,
   Image,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
 } from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { API_URL } from "../constants/api";
+import { notify } from "../utils/notify";
 
 export default function Register() {
   const router = useRouter();
@@ -24,16 +25,18 @@ export default function Register() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   // Fungsi daftar akun
   const handleRegister = async () => {
     if (!name.trim() || !email.trim() || !password || !confirmPassword) {
-      Alert.alert("Peringatan", "Semua kolom harus diisi.");
+      notify("Peringatan", "Semua kolom harus diisi.");
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert("Peringatan", "Konfirmasi password tidak sama.");
+      notify("Peringatan", "Konfirmasi password tidak sama.");
       return;
     }
 
@@ -52,24 +55,18 @@ export default function Register() {
         }),
       });
 
-      const result = await response.json();
+      const result = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        Alert.alert(
-          "Pendaftaran Gagal",
-          result.message || "Silakan coba lagi."
-        );
+        notify("Pendaftaran Gagal", result.error || result.message || "Silakan coba lagi.");
         return;
       }
 
-      Alert.alert("Berhasil", "Akun berhasil dibuat. Silakan login.", [
-        {
-          text: "OK",
-          onPress: () => router.replace("/login"),
-        },
-      ]);
+      notify("Berhasil", "Akun berhasil dibuat. Silakan login.", () =>
+        router.replace("/login")
+      );
     } catch {
-      Alert.alert("Gagal", "Tidak dapat terhubung ke server Backend.");
+      notify("Gagal", "Tidak dapat terhubung ke server Backend.");
     } finally {
       setLoading(false);
     }
@@ -121,25 +118,53 @@ export default function Register() {
 
         {/* Input password */}
         <Text style={styles.label}>Password</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Masukkan password"
-          placeholderTextColor="#999999"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
+        <View style={styles.passwordWrap}>
+          <TextInput
+            style={[styles.input, styles.passwordInput]}
+            placeholder="Masukkan password"
+            placeholderTextColor="#999999"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+            autoCapitalize="none"
+          />
+          <TouchableOpacity
+            style={styles.eyeButton}
+            onPress={() => setShowPassword((v) => !v)}
+            accessibilityLabel={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+          >
+            <Ionicons
+              name={showPassword ? "eye-off-outline" : "eye-outline"}
+              size={22}
+              color="#777777"
+            />
+          </TouchableOpacity>
+        </View>
 
         {/* Konfirmasi password */}
         <Text style={styles.label}>Konfirmasi Password</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ulangi password"
-          placeholderTextColor="#999999"
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry
-        />
+        <View style={styles.passwordWrap}>
+          <TextInput
+            style={[styles.input, styles.passwordInput]}
+            placeholder="Ulangi password"
+            placeholderTextColor="#999999"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry={!showConfirm}
+            autoCapitalize="none"
+          />
+          <TouchableOpacity
+            style={styles.eyeButton}
+            onPress={() => setShowConfirm((v) => !v)}
+            accessibilityLabel={showConfirm ? "Sembunyikan password" : "Tampilkan password"}
+          >
+            <Ionicons
+              name={showConfirm ? "eye-off-outline" : "eye-outline"}
+              size={22}
+              color="#777777"
+            />
+          </TouchableOpacity>
+        </View>
 
         {/* Tombol daftar */}
         <TouchableOpacity
@@ -220,6 +245,23 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#222222",
     marginBottom: 14,
+  },
+  passwordWrap: {
+    position: "relative",
+    marginBottom: 14,
+  },
+  passwordInput: {
+    marginBottom: 0,
+    paddingRight: 48,
+  },
+  eyeButton: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 48,
+    alignItems: "center",
+    justifyContent: "center",
   },
   button: {
     height: 50,

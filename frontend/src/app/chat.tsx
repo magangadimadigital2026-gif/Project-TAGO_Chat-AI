@@ -4,7 +4,6 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -19,6 +18,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../constants/palette";
 import { Rec, getConversation, sendMessage } from "../services/chat";
+import { confirmAction, notify } from "../utils/notify";
+import { clearPassword, loadPassword } from "../utils/secret";
 
 type Msg = {
   id: string;
@@ -47,6 +48,8 @@ export default function ChatScreen() {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [user, setUser] = useState({ name: "User", email: "" });
+  const [pw, setPw] = useState<string | null>(null);
+  const [showPw, setShowPw] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -55,6 +58,12 @@ export default function ChatScreen() {
       setUser({ name: name || "User", email: email || "" });
     })();
   }, []);
+
+  // Muat password saat menu dibuka; sembunyikan lagi saat menu ditutup.
+  useEffect(() => {
+    if (menuOpen) loadPassword().then(setPw);
+    else setShowPw(false);
+  }, [menuOpen]);
 
   // Buka percakapan lama (id) atau mulai baru (fresh).
   useEffect(() => {
@@ -74,7 +83,7 @@ export default function ChatScreen() {
           }))
         )
       )
-      .catch((e) => Alert.alert("Gagal memuat", e.message))
+      .catch((e) => notify("Gagal memuat", e.message))
       .finally(() => setLoading(false));
   }, [id, fresh]);
 
@@ -117,17 +126,11 @@ export default function ChatScreen() {
 
   const logout = () => {
     setMenuOpen(false);
-    Alert.alert("Logout", "Yakin ingin keluar?", [
-      { text: "Batal", style: "cancel" },
-      {
-        text: "Logout",
-        style: "destructive",
-        onPress: async () => {
-          await AsyncStorage.multiRemove(["token", "userName", "userEmail"]);
-          router.replace("/login");
-        },
-      },
-    ]);
+    confirmAction("Logout", "Yakin ingin keluar?", "Logout", async () => {
+      await AsyncStorage.multiRemove(["token", "userName", "userEmail"]);
+      await clearPassword();
+      router.replace("/login");
+    });
   };
 
   return (
@@ -224,12 +227,21 @@ export default function ChatScreen() {
             <View style={styles.menuHead}>
               <Text style={styles.menuName}>{user.name}</Text>
               {!!user.email && <Text style={styles.menuEmail}>{user.email}</Text>}
+              <View style={styles.menuPw}>
+                <Ionicons name="lock-closed-outline" size={14} color={colors.muted} />
+                <Text style={[styles.menuEmail, { flex: 1 }]} selectable={showPw}>
+                  {showPw ? pw ?? "Tidak tersedia" : "••••••••"}
+                </Text>
+                <Pressable
+                  accessibilityLabel={showPw ? "Sembunyikan password" : "Tampilkan password"}
+                  hitSlop={10}
+                  onPress={() => setShowPw((v) => !v)}
+                >
+                  <Ionicons name={showPw ? "eye-off-outline" : "eye-outline"} size={20} color={colors.muted} />
+                </Pressable>
+              </View>
             </View>
             <View style={styles.divider} />
-            <Pressable style={styles.menuItem} onPress={openHistory}>
-              <Ionicons name="time-outline" size={20} color={colors.ink} />
-              <Text style={styles.menuText}>Riwayat Chat</Text>
-            </Pressable>
             <Pressable style={styles.menuItem} onPress={logout}>
               <Ionicons name="log-out-outline" size={20} color={colors.danger} />
               <Text style={[styles.menuText, { color: colors.danger }]}>Logout</Text>
@@ -335,6 +347,7 @@ const styles = StyleSheet.create({
   menu: { position: "absolute", right: 16, width: 272, backgroundColor: colors.card, borderRadius: 20, padding: 8, elevation: 12, shadowColor: "#000", shadowOpacity: 0.25, shadowRadius: 16, shadowOffset: { width: 0, height: 8 } },
   menuHead: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 12 },
   menuName: { fontSize: 16, fontWeight: "700", color: colors.ink },
+  menuPw: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 },
   menuEmail: { fontSize: 13, color: colors.muted, marginTop: 2 },
   divider: { height: 1, backgroundColor: colors.border, marginHorizontal: 6, marginBottom: 6 },
   menuItem: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 12 },

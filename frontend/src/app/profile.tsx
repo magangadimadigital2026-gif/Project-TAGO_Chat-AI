@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -8,10 +9,13 @@ import {
   Text,
   View,
 } from "react-native";
+import { loadPassword } from "../utils/secret";
 
 export default function ProfileScreen() {
   const [userName, setUserName] = useState("");
   const [userEmail, setUserEmail] = useState("");
+  const [userPassword, setUserPassword] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     loadUserData();
@@ -29,6 +33,8 @@ export default function ProfileScreen() {
       if (email) {
         setUserEmail(email);
       }
+
+      setUserPassword(await loadPassword());
     } catch (error) {
       console.log("Gagal mengambil data profil:", error);
     }
@@ -59,7 +65,7 @@ export default function ProfileScreen() {
         <Text style={styles.profileTitle}>Profil Saya</Text>
 
         <Text style={styles.profileSubtitle}>
-          Informasi akun pengguna TAGO
+          Informasi akun pengguna GOAI
         </Text>
 
         {/* Nama */}
@@ -90,16 +96,44 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        {/* Password */}
+        <View style={styles.infoBox}>
+          <View style={styles.infoIcon}>
+            <Text>🔒</Text>
+          </View>
+
+          <View style={styles.infoContent}>
+            <Text style={styles.label}>Password</Text>
+            <Text style={styles.value}>
+              {showPassword ? userPassword || "Tidak tersedia" : "••••••••"}
+            </Text>
+          </View>
+
+          <Pressable
+            hitSlop={10}
+            onPress={() => setShowPassword((v) => !v)}
+            accessibilityLabel={
+              showPassword ? "Sembunyikan password" : "Tampilkan password"
+            }
+          >
+            <Ionicons
+              name={showPassword ? "eye-off-outline" : "eye-outline"}
+              size={22}
+              color="#6B7280"
+            />
+          </Pressable>
+        </View>
+
         {/* Back Button */}
         <Pressable
           style={({ pressed }) => [
             styles.homeButton,
             pressed && styles.homeButtonPressed,
           ]}
-          onPress={() => router.replace("/home")}
+          onPress={() => router.replace("/chat")}
         >
           <Text style={styles.homeButtonText}>
-            Kembali ke Home
+            Kembali ke Chat
           </Text>
         </Pressable>
       </View>

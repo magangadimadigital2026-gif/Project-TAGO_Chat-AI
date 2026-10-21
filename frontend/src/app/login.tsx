@@ -6,15 +6,17 @@ import {
   TouchableOpacity,
   Image,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
 } from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_URL } from "../constants/api";
+import { confirmAction, notify } from "../utils/notify";
+import { savePassword } from "../utils/secret";
 
 export default function Login() {
   const router = useRouter();
@@ -23,11 +25,12 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Fungsi untuk login
   const handleLogin = async () => {
     if (!email.trim() || !password) {
-      Alert.alert("Peringatan", "Email dan password harus diisi.");
+      notify("Peringatan", "Email dan password harus diisi.");
       return;
     }
 
@@ -46,14 +49,27 @@ export default function Login() {
         }),
       });
 
-      const result = await response.json();
+      const result = await response.json().catch(() => ({}));
 
-      // Memeriksa hasil login
+      // Memeriksa hasil login (backend mengirim { error, code })
       if (!response.ok) {
-        Alert.alert(
-          "Login Gagal",
-          result.message || "Email atau password salah.",
-        );
+        const message =
+          result.error || result.message || "Email atau password salah.";
+
+        if (result.code === "ACCOUNT_NOT_FOUND") {
+          // Akun belum terdaftar -> tawarkan pindah ke halaman daftar
+          confirmAction(
+            "Akun Belum Terdaftar",
+            message,
+            "Daftar",
+            () => router.push("/register"),
+            false
+          );
+        } else if (result.code === "INVALID_PASSWORD") {
+          notify("Password Salah", message);
+        } else {
+          notify("Login Gagal", message);
+        }
         return;
       }
 
@@ -61,13 +77,17 @@ export default function Login() {
       const token = result.data?.token ?? result.token;
       const user = result.data?.user ?? result.user;
 
+
       if (!token) {
-        Alert.alert("Login Gagal", "Token tidak ditemukan dari server.");
+        notify("Login Gagal", "Token tidak ditemukan dari server.");
         return;
       }
 
       // Menyimpan data login
       await AsyncStorage.setItem("token", token);
+
+      // Simpan password (terenkripsi) untuk ditampilkan di halaman Profil
+      await savePassword(password);
 
       if (user?.name) {
         await AsyncStorage.setItem("userName", user.name);
@@ -80,10 +100,7 @@ export default function Login() {
       // Berpindah ke halaman chat
       router.replace("/chat");
     } catch {
-      Alert.alert(
-        "Gagal",
-        "Tidak dapat terhubung ke server. Periksa koneksi Backend.",
-      );
+      notify("Gagal", "Tidak dapat terhubung ke server. Periksa koneksi Backend.");
     } finally {
       setLoading(false);
     }
@@ -124,14 +141,28 @@ export default function Login() {
 
         {/* Input password */}
         <Text style={styles.label}>Password</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Masukkan password"
-          placeholderTextColor="#999999"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
+        <View style={styles.passwordWrap}>
+          <TextInput
+            style={[styles.input, styles.passwordInput]}
+            placeholder="Masukkan password"
+            placeholderTextColor="#999999"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+            autoCapitalize="none"
+          />
+          <TouchableOpacity
+            style={styles.eyeButton}
+            onPress={() => setShowPassword((v) => !v)}
+            accessibilityLabel={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+          >
+            <Ionicons
+              name={showPassword ? "eye-off-outline" : "eye-outline"}
+              size={22}
+              color="#777777"
+            />
+          </TouchableOpacity>
+        </View>
 
         {/* Tombol login */}
         <TouchableOpacity
@@ -212,6 +243,23 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#222222",
     marginBottom: 18,
+  },
+  passwordWrap: {
+    position: "relative",
+    marginBottom: 18,
+  },
+  passwordInput: {
+    marginBottom: 0,
+    paddingRight: 48,
+  },
+  eyeButton: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 48,
+    alignItems: "center",
+    justifyContent: "center",
   },
   button: {
     height: 50,
