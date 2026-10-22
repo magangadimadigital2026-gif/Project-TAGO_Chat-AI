@@ -3,19 +3,15 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-  Image,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { loadPassword } from "../utils/secret";
 
 export default function ProfileScreen() {
   const [userName, setUserName] = useState("");
   const [userEmail, setUserEmail] = useState("");
-  const [userPassword, setUserPassword] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     loadUserData();
@@ -34,7 +30,6 @@ export default function ProfileScreen() {
         setUserEmail(email);
       }
 
-      setUserPassword(await loadPassword());
     } catch (error) {
       console.log("Gagal mengambil data profil:", error);
     }
@@ -46,7 +41,13 @@ export default function ProfileScreen() {
       <View style={styles.header}>
         <Pressable
           style={styles.backButton}
-          onPress={() => router.replace("/chat")}
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace("/chat");
+            }
+          }}
         >
           <Text style={styles.backText}>‹</Text>
         </Pressable>
@@ -96,41 +97,19 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Password */}
-        <View style={styles.infoBox}>
-          <View style={styles.infoIcon}>
-            <Text>🔒</Text>
-          </View>
-
-          <View style={styles.infoContent}>
-            <Text style={styles.label}>Password</Text>
-            <Text style={styles.value}>
-              {showPassword ? userPassword || "Tidak tersedia" : "••••••••"}
-            </Text>
-          </View>
-
-          <Pressable
-            hitSlop={10}
-            onPress={() => setShowPassword((v) => !v)}
-            accessibilityLabel={
-              showPassword ? "Sembunyikan password" : "Tampilkan password"
-            }
-          >
-            <Ionicons
-              name={showPassword ? "eye-off-outline" : "eye-outline"}
-              size={22}
-              color="#6B7280"
-            />
-          </Pressable>
-        </View>
-
         {/* Back Button */}
         <Pressable
           style={({ pressed }) => [
             styles.chatButton,
             pressed && styles.chatButtonPressed,
           ]}
-          onPress={() => router.replace("/chat")}
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace("/chat");
+            }
+          }}
         >
           <Text style={styles.chatButtonText}>
             Kembali ke Chat
@@ -181,7 +160,7 @@ const styles = StyleSheet.create({
 
   backText: {
     fontSize: 32,
-    color: "#0647D8",
+    color: "#0029FF",
     lineHeight: 35,
   },
 
@@ -283,7 +262,7 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 50,
     borderRadius: 14,
-    backgroundColor: "#0647D8",
+    backgroundColor: "#0029FF",
     alignItems: "center",
     justifyContent: "center",
     marginTop: 15,

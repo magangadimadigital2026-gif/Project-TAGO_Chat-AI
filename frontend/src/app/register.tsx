@@ -40,6 +40,21 @@ export default function Register() {
       return;
     }
 
+    if (name.trim().length < 2) {
+      notify("Peringatan", "Nama minimal 2 karakter.");
+      return;
+    }
+
+    if (!/^[A-Za-z0-9._%+-]+@gmail\.com$/i.test(email.trim())) {
+      notify("Peringatan", "Format email tidak valid, contoh: nama@gmail.com.");
+      return;
+    }
+
+    if (password.length < 8) {
+      notify("Peringatan", "Password minimal 8 karakter.");
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -265,7 +280,7 @@ const styles = StyleSheet.create({
   },
   button: {
     height: 50,
-    backgroundColor: "#2439C6",
+    backgroundColor: "#0029FF",
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
@@ -290,7 +305,7 @@ const styles = StyleSheet.create({
   },
   link: {
     fontSize: 14,
-    color: "#2439C6",
+    color: "#0029FF",
     fontWeight: "bold",
   },
   footer: {

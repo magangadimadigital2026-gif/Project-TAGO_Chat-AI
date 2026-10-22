@@ -93,9 +93,7 @@ export default function Login() {
         await AsyncStorage.setItem("userName", user.name);
       }
 
-      if (user?.email) {
-        await AsyncStorage.setItem("userEmail", user.email);
-      }
+      await AsyncStorage.setItem("userEmail", user?.email ?? email.trim());
 
       // Berpindah ke halaman chat
       router.replace("/chat");
@@ -263,7 +261,7 @@ const styles = StyleSheet.create({
   },
   button: {
     height: 50,
-    backgroundColor: "#2439C6",
+    backgroundColor: "#0029FF",
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
@@ -288,7 +286,7 @@ const styles = StyleSheet.create({
   },
   link: {
     fontSize: 14,
-    color: "#2439C6",
+    color: "#0029FF",
     fontWeight: "bold",
   },
   footer: {

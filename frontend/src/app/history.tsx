@@ -42,9 +42,19 @@ export default function HistoryScreen() {
   const load = useCallback(async (pull = false) => {
     pull ? setRefreshing(true) : setLoading(true);
     setError("");
+
     try {
       const data = await listConversations();
-      setItems([...data].sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt)));
+
+      // Urutkan percakapan dari yang terbaru
+      const sortedData = [...data].sort(
+        (a, b) =>
+                new Date(b.updatedAt).getTime() -
+                new Date(a.updatedAt).getTime()
+      );      
+
+      // Ambil maksimal 10 percakapan terbaru
+      setItems(sortedData.slice(0, 10));    
     } catch (e) {
       setError(e instanceof Error ? e.message : "Gagal memuat riwayat.");
     } finally {
