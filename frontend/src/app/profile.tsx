@@ -46,7 +46,7 @@ export default function ProfileScreen() {
       <View style={styles.header}>
         <Pressable
           style={styles.backButton}
-          onPress={() => router.replace("/home")}
+          onPress={() => router.replace("/chat")}
         >
           <Text style={styles.backText}>‹</Text>
         </Pressable>
@@ -127,12 +127,12 @@ export default function ProfileScreen() {
         {/* Back Button */}
         <Pressable
           style={({ pressed }) => [
-            styles.homeButton,
-            pressed && styles.homeButtonPressed,
+            styles.chatButton,
+            pressed && styles.chatButtonPressed,
           ]}
           onPress={() => router.replace("/chat")}
         >
-          <Text style={styles.homeButtonText}>
+          <Text style={styles.chatButtonText}>
             Kembali ke Chat
           </Text>
         </Pressable>
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
     color: "#111827",
   },
 
-  homeButton: {
+  chatButton: {
     width: "100%",
     height: 50,
     borderRadius: 14,
@@ -289,12 +289,12 @@ const styles = StyleSheet.create({
     marginTop: 15,
   },
 
-  homeButtonPressed: {
+  chatButtonPressed: {
     opacity: 0.8,
     transform: [{ scale: 0.98 }],
   },
 
-  homeButtonText: {
+  chatButtonText: {
     color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "700",
