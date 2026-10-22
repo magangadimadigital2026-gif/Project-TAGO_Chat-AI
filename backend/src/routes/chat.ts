@@ -1,3 +1,4 @@
+
 import { Hono } from "hono";
 import { z } from "zod";
 import { authMiddleware } from "../middleware/auth.js";
@@ -5,13 +6,49 @@ import { prisma } from "../lib/prisma.js";
 
 const chat = new Hono();
 
+// Membersihkan format Markdown dan blok JSON quick_replies.
+function cleanAIReply(reply: unknown): string | null {
+  if (typeof reply !== "string" || !reply.trim()) {
+    return null;
+  }
+
+  let cleaned = reply.replace(/\r\n/g, "\n").trim();
+
+  // Hapus blok JSON quick_replies yang dibungkus code fence.
+  cleaned = cleaned.replace(
+    /```(?:json)?\s*\{[\s\S]*?"quick_replies"\s*:[\s\S]*?\}\s*```\s*$/i,
+    "",
+  );
+
+  // Hapus blok JSON quick_replies tanpa code fence.
+  cleaned = cleaned.replace(
+    /\n\s*\{\s*"quick_replies"\s*:[\s\S]*?\}\s*$/i,
+    "",
+  );
+
+  // Hapus code fence yang tersisa.
+  cleaned = cleaned.replace(/```(?:json)?/gi, "");
+
+  // Hilangkan format Markdown tebal, miring, dan inline code.
+  cleaned = cleaned
+    .replace(/\*\*(.*?)\*\*/gs, "$1")
+    .replace(/__(.*?)__/gs, "$1")
+    .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, "$1")
+    .replace(/(?<!_)_([^_\n]+)_(?!_)/g, "$1")
+    .replace(/`([^`\n]+)`/g, "$1")
+    .replace(/^\s*#{1,6}\s+/gm, "")
+    .trim();
+
+  return cleaned || null;
+}
+
 chat.post("/", authMiddleware, async (c) => {
   try {
     const user = c.get("user");
     const body = await c.req.json();
 
     const chatSchema = z.object({
-      message: z.string().min(1, "Pesan tidak boleh kosong"),
+      message: z.string().trim().min(1, "Pesan tidak boleh kosong"),
       conversationId: z.number().int().positive().optional(),
     });
 
@@ -30,22 +67,12 @@ chat.post("/", authMiddleware, async (c) => {
 
     const { message, conversationId } = result.data;
 
-    if (!message) {
-      return c.json(
-        {
-          success: false,
-          message: "Pesan wajib diisi",
-        },
-        400,
-      );
-    }
-
     let conversation;
 
     if (conversationId) {
       conversation = await prisma.conversation.findFirst({
         where: {
-          id: Number(conversationId),
+          id: conversationId,
           userId: user.userId,
         },
       });
@@ -92,7 +119,7 @@ chat.post("/", authMiddleware, async (c) => {
       }),
     );
 
-    // Ambil data makanan yang tersedia dari database
+    // Ambil menu makanan yang tersedia.
     const foods = await prisma.food.findMany({
       where: {
         isAvailable: true,
@@ -115,33 +142,24 @@ chat.post("/", authMiddleware, async (c) => {
       },
     });
 
-    // Context makanan yang akan dikirim ke AI
     const foodContext = {
       menus: foods,
     };
 
-    console.log(
-      "REQUEST KE AI:",
-      JSON.stringify(
-        {
+    // Hubungi API AI teman.
+    const aiResponse = await fetch(
+      "http://192.168.1.31:3000/api/chat",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
           messages: messagesForAI,
           context: foodContext,
-        },
-        null,
-        2,
-      ),
-    );
-
-    const aiResponse = await fetch("http://192.168.1.31:3000/api/chat", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+        }),
       },
-      body: JSON.stringify({
-        messages: messagesForAI,
-        context: foodContext,
-      }),
-    });
+    );
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
@@ -162,9 +180,24 @@ chat.post("/", authMiddleware, async (c) => {
       );
     }
 
-    const aiData = await aiResponse.json();
+    const aiData = (await aiResponse.json()) as {
+      reply?: unknown;
+    };
 
-    const aiReply = aiData.reply;
+    // Bersihkan jawaban sebelum disimpan.
+    const aiReply = cleanAIReply(aiData.reply);
+
+    if (!aiReply) {
+      console.error("AI API ERROR: Respons AI kosong atau tidak valid");
+
+      return c.json(
+        {
+          success: false,
+          message: "Respons AI tidak valid",
+        },
+        502,
+      );
+    }
 
     const aiMessage = await prisma.message.create({
       data: {
@@ -199,6 +232,7 @@ chat.post("/", authMiddleware, async (c) => {
   }
 });
 
+// Mengambil daftar percakapan milik pengguna.
 chat.get("/", authMiddleware, async (c) => {
   try {
     const user = c.get("user");
@@ -229,14 +263,25 @@ chat.get("/", authMiddleware, async (c) => {
   }
 });
 
+// Mengambil satu percakapan beserta pesannya.
 chat.get("/:id", authMiddleware, async (c) => {
   try {
     const user = c.get("user");
     const id = Number(c.req.param("id"));
 
+    if (!Number.isInteger(id) || id <= 0) {
+      return c.json(
+        {
+          success: false,
+          message: "ID percakapan tidak valid",
+        },
+        400,
+      );
+    }
+
     const conversation = await prisma.conversation.findFirst({
       where: {
-        id: id,
+        id,
         userId: user.userId,
       },
       include: {
