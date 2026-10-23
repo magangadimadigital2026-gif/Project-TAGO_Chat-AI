@@ -73,18 +73,20 @@ export const sendMessage = async (
     body.conversationId = Number(conversationId);
   }
 
-  const result = await request<{
+   const result = await request<{
     conversationId: number;
     userMessage: string;
     aiReply: string;
+    quick_replies?: string[];
   }>("/api/chat", {
     method: "POST",
     body: JSON.stringify(body),
   });
 
-  return {
+    return {
     conversationId: String(result.conversationId),
     reply: result.aiReply,
+    suggestions: result.quick_replies ?? [],
   };
 };
 
@@ -143,8 +145,7 @@ export const getConversation = async (id: string) => {
 
 // Backend saat ini belum menyediakan endpoint hapus percakapan.
 // Fungsi ini belum bisa menghapus data dari database.
-export const deleteConversation = async (
-  _id: string,
-): Promise<null> => {
-  throw new Error("Fitur hapus riwayat belum tersedia di backend.");
+export const deleteConversation = async (id: string): Promise<null> => {
+  await request(`/api/chat/${id}`, { method: "DELETE" });
+  return null;
 };

@@ -13,9 +13,19 @@ export const users = pgTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
+export const conversations = pgTable("conversations", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  title: varchar("title", { length: 100 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const chatMessages = pgTable("chat_messages", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  // Nullable supaya pesan lama tetap valid; diadopsi otomatis ke satu percakapan.
+  conversationId: integer("conversation_id").references(() => conversations.id, { onDelete: "cascade" }),
   role: roleEnum("role").notNull(),
   content: text("content").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -23,3 +33,4 @@ export const chatMessages = pgTable("chat_messages", {
 
 export type ChatMessage = typeof chatMessages.$inferSelect;
 export type InsertChatMessage = typeof chatMessages.$inferInsert;
+export type Conversation = typeof conversations.$inferSelect;
