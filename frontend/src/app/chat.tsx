@@ -59,12 +59,16 @@ export default function ChatScreen() {
 
     // Buka percakapan lama (id), mulai baru (fresh), atau muat riwayat terakhir.
     useEffect(() => {
-      const target = id ?? (fresh ? undefined : "default");
+      const target = id;
+
       setConvId(target);
       setMessages([]);
       setSuggestions([]);
+
       if (!target) return;
+
       setLoading(true);
+
       getConversation(target)
         .then((c) =>
           setMessages(
@@ -170,8 +174,7 @@ export default function ChatScreen() {
         <FlatList
           ref={listRef}
           data={messages}
-          keyExtractor={(m) => m.id}
-          contentContainerStyle={styles.list}
+          keyExtractor={(m) => m.id}              contentContainerStyle={styles.list}
           keyboardShouldPersistTaps="handled"
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
           ListEmptyComponent={

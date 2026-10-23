@@ -100,6 +100,8 @@ type ConversationRow = {
 export const listConversations =
   async (): Promise<ConversationItem[]> => {
     const rows = await request<ConversationRow[]>("/api/chat");
+    console.log("JUMLAH PERCAKAPAN:", rows.length);
+    console.log("DATA PERCAKAPAN:", rows);
 
     return rows
       .map((item) => ({
