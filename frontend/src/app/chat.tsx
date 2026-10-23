@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../constants/palette";
 import { Rec, getConversation, sendMessage } from "../services/chat";
 import { confirmAction, notify } from "../utils/notify";
-import { clearPassword, loadPassword } from "../utils/secret";
+import { clearPassword } from "../utils/secret";
 
 type Msg = {
   id: string;
@@ -48,8 +48,6 @@ export default function ChatScreen() {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [user, setUser] = useState({ name: "User", email: "" });
-  const [pw, setPw] = useState<string | null>(null);
-  const [showPw, setShowPw] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -59,33 +57,28 @@ export default function ChatScreen() {
     })();
   }, []);
 
-  // Muat password saat menu dibuka; sembunyikan lagi saat menu ditutup.
-  useEffect(() => {
-    if (menuOpen) loadPassword().then(setPw);
-    else setShowPw(false);
-  }, [menuOpen]);
-
-  // Buka percakapan lama (id) atau mulai baru (fresh).
-  useEffect(() => {
-    setConvId(id);
-    setMessages([]);
-    setSuggestions([]);
-    if (!id) return;
-    setLoading(true);
-    getConversation(id)
-      .then((c) =>
-        setMessages(
-          c.messages.map((m) => ({
-            id: m.id,
-            role: m.role,
-            text: m.text,
-            recs: m.recommendations,
-          }))
+    // Buka percakapan lama (id), mulai baru (fresh), atau muat riwayat terakhir.
+    useEffect(() => {
+      const target = id ?? (fresh ? undefined : "default");
+      setConvId(target);
+      setMessages([]);
+      setSuggestions([]);
+      if (!target) return;
+      setLoading(true);
+      getConversation(target)
+        .then((c) =>
+          setMessages(
+            c.messages.map((m) => ({
+              id: m.id,
+              role: m.role,
+              text: m.text,
+              recs: m.recommendations,
+            }))
+          )
         )
-      )
-      .catch((e) => notify("Gagal memuat", e.message))
-      .finally(() => setLoading(false));
-  }, [id, fresh]);
+        .catch((e) => notify("Gagal memuat", e.message))
+        .finally(() => setLoading(false));
+    }, [id, fresh]);
 
   const send = async (raw: string) => {
     const text = raw.trim();
@@ -122,6 +115,11 @@ export default function ChatScreen() {
   const openHistory = () => {
     setMenuOpen(false);
     router.push("/history");
+  };
+
+  const openProfile = () => {
+    setMenuOpen(false);
+    router.push("/profile");
   };
 
   const logout = () => {
@@ -227,21 +225,14 @@ export default function ChatScreen() {
             <View style={styles.menuHead}>
               <Text style={styles.menuName}>{user.name}</Text>
               {!!user.email && <Text style={styles.menuEmail}>{user.email}</Text>}
-              <View style={styles.menuPw}>
-                <Ionicons name="lock-closed-outline" size={14} color={colors.muted} />
-                <Text style={[styles.menuEmail, { flex: 1 }]} selectable={showPw}>
-                  {showPw ? pw ?? "Tidak tersedia" : "••••••••"}
-                </Text>
-                <Pressable
-                  accessibilityLabel={showPw ? "Sembunyikan password" : "Tampilkan password"}
-                  hitSlop={10}
-                  onPress={() => setShowPw((v) => !v)}
-                >
-                  <Ionicons name={showPw ? "eye-off-outline" : "eye-outline"} size={20} color={colors.muted} />
-                </Pressable>
-              </View>
             </View>
             <View style={styles.divider} />
+
+            <Pressable style={styles.menuItem} onPress={openProfile}>
+              <Ionicons name="person-circle-outline" size={20} color={colors.ink} />
+              <Text style={styles.menuText}>Profil</Text>
+            </Pressable>
+
             <Pressable style={styles.menuItem} onPress={logout}>
               <Ionicons name="log-out-outline" size={20} color={colors.danger} />
               <Text style={[styles.menuText, { color: colors.danger }]}>Logout</Text>
@@ -299,7 +290,7 @@ function EmptyState({ name, onPick }: { name: string; onPick: (t: string) => voi
   return (
     <View style={styles.empty}>
       <View style={styles.emptyCircle}>
-        <Image source={require("../../assets/images/goai.png")} style={{ width: 96, height: 96, borderRadius: 24 }} />
+        <Image source={require("../../assets/images/goai.png")} style={{ width: 96, height: 96 }} />
       </View>
       <Text style={styles.emptyTitle}>Hai, {name}!</Text>
       <Text style={styles.emptySub}>Mau makan apa hari ini?</Text>
@@ -318,7 +309,7 @@ function EmptyState({ name, onPick }: { name: string; onPick: (t: string) => voi
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  header: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingBottom: 14, backgroundColor: colors.primary },
+  header: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingBottom: 14, backgroundColor: colors.primary},
   logoWrap: { backgroundColor: "#fff", borderRadius: 12, padding: 3 },
   logo: { width: 36, height: 36, borderRadius: 9 },
   title: { color: "#fff", fontSize: 18, fontWeight: "700" },
@@ -347,13 +338,12 @@ const styles = StyleSheet.create({
   menu: { position: "absolute", right: 16, width: 272, backgroundColor: colors.card, borderRadius: 20, padding: 8, elevation: 12, shadowColor: "#000", shadowOpacity: 0.25, shadowRadius: 16, shadowOffset: { width: 0, height: 8 } },
   menuHead: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 12 },
   menuName: { fontSize: 16, fontWeight: "700", color: colors.ink },
-  menuPw: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 },
   menuEmail: { fontSize: 13, color: colors.muted, marginTop: 2 },
   divider: { height: 1, backgroundColor: colors.border, marginHorizontal: 6, marginBottom: 6 },
   menuItem: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 12 },
   menuText: { fontSize: 15, fontWeight: "600", color: colors.ink },
   empty: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 24 },
-  emptyCircle: { width: 168, height: 168, borderRadius: 84, backgroundColor: colors.soft, alignItems: "center", justifyContent: "center", marginBottom: 12 },
+  emptyCircle: { alignItems: "center", justifyContent: "center", marginBottom: 12 },
   emptyTitle: { fontSize: 24, fontWeight: "700", color: colors.ink },
   emptySub: { fontSize: 15, color: colors.muted, marginTop: 4 },
   example: { flexDirection: "row", alignItems: "center", backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 16 },
