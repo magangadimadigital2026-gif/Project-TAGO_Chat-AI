@@ -99,24 +99,36 @@ type ConversationRow = {
 };
 
 // Mengambil daftar percakapan
+
 export const listConversations =
   async (): Promise<ConversationItem[]> => {
     const rows = await request<ConversationRow[]>("/api/chat");
 
+    console.log("DATA PERCAKAPAN:", rows);
+
+    if (!Array.isArray(rows)) {
+      throw new Error(
+        "Format daftar percakapan dari backend tidak sesuai."
+      );
+    }
+
+    console.log("JUMLAH PERCAKAPAN:", rows.length);
+
     return rows
       .map((item) => ({
         id: String(item.id),
-        title: item.title,
-        lastMessage: item.title,
+        title: item.title || "Percakapan baru",
+        lastMessage: item.title || "",
         updatedAt: item.updatedAt ?? item.createdAt,
       }))
       .sort(
         (a, b) =>
           new Date(b.updatedAt).getTime() -
-          new Date(a.updatedAt).getTime(),
+          new Date(a.updatedAt).getTime()
       )
       .slice(0, 10);
   };
+
 
 // Mengambil detail satu percakapan
 export const getConversation = async (id: string) => {
@@ -145,7 +157,12 @@ export const getConversation = async (id: string) => {
 
 // Backend saat ini belum menyediakan endpoint hapus percakapan.
 // Fungsi ini belum bisa menghapus data dari database.
-export const deleteConversation = async (id: string): Promise<null> => {
-  await request(`/api/chat/${id}`, { method: "DELETE" });
+export const deleteConversation = async (
+  id: string,
+): Promise<null> => {
+  await request<unknown>(`/api/chat/${id}`, {
+    method: "DELETE",
+  });
+
   return null;
 };
