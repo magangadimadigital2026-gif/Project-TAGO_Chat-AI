@@ -103,6 +103,20 @@ async function callGemini(
   }
 }
 
+function cleanAIReply(text: string): string {
+  return text
+    .replace(/\r\n/g, "\n")
+    .replace(/```(?:json)?/gi, "")
+    .replace(/\*\*(.*?)\*\*/gs, "$1")
+    .replace(/__(.*?)__/gs, "$1")
+    .replace(/^\s*[*-]\s+/gm, "• ")
+    .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, "$1")
+    .replace(/`([^`\n]+)`/g, "$1")
+    .replace(/^\s*#{1,6}\s+/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 async function askGemini(messages: ChatMsg[]): Promise<AiResult> {
   if (!geminiApiKey) {
     return { ok: false, detail: "GEMINI_API_KEY belum diisi" };
