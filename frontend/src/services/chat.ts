@@ -147,8 +147,7 @@ export const getConversation = async (id: string) => {
   };
 };
 
-// Backend saat ini belum menyediakan endpoint hapus percakapan.
-// Fungsi ini belum bisa menghapus data dari database.
+
 export const deleteConversation = async (
   _id: string,
 ): Promise<null> => {
