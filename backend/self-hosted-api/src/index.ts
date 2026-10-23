@@ -4,7 +4,7 @@ import { cors } from "hono/cors";
 import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 import { z } from "zod";
-import { and, desc, eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { db } from "./db/index.js";
 import { chatMessages, users } from "./db/schema.js";
 import {
@@ -143,17 +143,33 @@ async function askGemini(messages: ChatMsg[]): Promise<AiResult> {
     },
   });
   const retryable = (s: number) => s === 429 || s >= 500;
-
+  const plan = [
+    { model: geminiModel, thinking: true, delay: 0 },
+    { model: geminiModel, thinking: false, delay: 1500 },
+    ...(geminiFallbackModel && geminiFallbackModel !== geminiModel
+      ? [
+          { model: geminiFallbackModel, thinking: false, delay: 0 },
+          { model: geminiFallbackModel, thinking: false, delay: 1500 },
+        ]
+      : []),
+  ];
+  const deadline = Date.now() + 50_000;
+  const skip = new Set<string>();
   let usedModel = geminiModel;
-  let response = await callGemini(geminiModel, buildBody(true), 20_000);
-  if (response.status === 400 && geminiThinking) {
-    response = await callGemini(geminiModel, buildBody(false), 20_000);
+  let response: Response | null = null;
+  let lastDetail = "";
+
+  for (const step of plan) {
+    if (skip.has(step.model) || Date.now() > deadline) continue;
+    if (step.delay) await new Promise((r) => setTimeout(r, step.delay));
+    usedModel = step.model;
+    response = await callGemini(step.model, buildBody(step.thinking), 15_000);
+    if (response.ok) break;
+    lastDetail = await response.text();
+    if (response.status === 429) skip.add(step.model);
+    else if (!retryable(response.status) && response.status !== 400) break;
   }
-  if (retryable(response.status)) {
-    usedModel = geminiFallbackModel || geminiModel;
-    response = await callGemini(usedModel, buildBody(false), 20_000);
-  }
-  if (!response.ok) return { ok: false, detail: await response.text() };
+  if (!response || !response.ok) return { ok: false, detail: lastDetail };
   const payload = (await response.json()) as {
     candidates?: { content?: { parts?: { text?: string }[] } }[];
   };
@@ -271,12 +287,64 @@ app.get("/api/chat/history", authMiddleware, async (c) => {
   return c.json({ messages: rows });
 });
 
+// Kompatibilitas frontend baru: satu percakapan per user (id = user.id).
+app.get("/api/chat", authMiddleware, async (c) => {
+  const user = c.get("user");
+  const rows = await db
+    .select({
+      role: chatMessages.role,
+      content: chatMessages.content,
+      createdAt: chatMessages.createdAt,
+    })
+    .from(chatMessages)
+    .where(eq(chatMessages.userId, user.id))
+    .orderBy(chatMessages.createdAt);
+  if (rows.length === 0) return c.json({ success: true, data: [] });
+  const first = rows.find((m) => m.role === "user") ?? rows[0];
+  const last = rows[rows.length - 1];
+  return c.json({
+    success: true,
+    data: [
+      {
+        id: user.id,
+        title: first.content.slice(0, 50),
+        createdAt: first.createdAt,
+        updatedAt: last.createdAt,
+      },
+    ],
+  });
+});
+
+app.get("/api/chat/:id", authMiddleware, async (c) => {
+  const user = c.get("user");
+  const rows = await db
+    .select({
+      id: chatMessages.id,
+      role: chatMessages.role,
+      content: chatMessages.content,
+      createdAt: chatMessages.createdAt,
+    })
+    .from(chatMessages)
+    .where(eq(chatMessages.userId, user.id))
+    .orderBy(chatMessages.createdAt);
+  const first = rows.find((m) => m.role === "user") ?? rows[0];
+  return c.json({
+    success: true,
+    data: {
+      id: user.id,
+      title: first ? first.content.slice(0, 50) : "Percakapan",
+      messages: rows,
+    },
+  });
+});
+
 const chatInput = z.object({
   message: z.string().trim().min(1).max(2000),
+  conversationId: z.unknown().optional(),
   lat: z.number().optional(),
   lon: z.number().optional(),
 });
-const systemPrompt = `Kamu adalah FoodMate, teman ngobrol yang santai dan ramah, membantu memilih makanan. Gunakan gaya bahasa yang hangat dan emoji secukupnya. Jika info dari user belum lengkap (budget, waktu makan, selera), tanya balik dengan pertanyaan sederhana dulu, jangan langsung kasih daftar panjang. Pertimbangkan cuaca jika tersedia dalam konteks percakapan. jangan memberi diagnosis medis; sarankan cek bahan dan konsultasi profesional untuk risiko kesehatan. Jangan mengarang atau menebak komposisi/bahan spesifik suatu makanan jika tidak yakin — cukup sebut nama makanannya saja tanpa rincian bahan yang salah, atau gunakan deskripsi umum yang aman seperti "makanan/minuman khas daerah tersebut". SELALU akhiri jawabanmu dengan baris terpisah berisi JSON : {"quick_replies": ["opsi singkat 1", "opsi singkat 2", "opsi singkat 3"]} — isi array dengan 3 balasan singkat yang relevan untuk user pilih selanjutnya.`;
+const systemPrompt = `Kamu adalah FoodMate, teman ngobrol yang santai dan ramah, membantu memilih makanan. Gunakan gaya bahasa yang hangat dan emoji secukupnya. Jika info dari user belum lengkap (budget, waktu makan, selera), tanya balik dengan pertanyaan sederhana dulu, jangan langsung kasih daftar panjang. Pertimbangkan cuaca jika tersedia dalam konteks percakapan. jangan memberi diagnosis medis; sarankan cek bahan dan konsultasi profesional untuk risiko kesehatan. Jangan mengarang atau menebak komposisi/bahan spesifik suatu makanan jika tidak yakin - cukup sebut nama makanannya saja tanpa rincian bahan yang salah, atau gunakan deskripsi umum yang aman seperti "makanan/minuman khas daerah tersebut". Tulis dengan teks biasa: jangan pakai Markdown, tanda bintang, pagar, atau backtick. Untuk daftar, tulis angka dan titik di baris baru. SELALU akhiri jawabanmu dengan baris terpisah berisi JSON : {"quick_replies": ["opsi singkat 1", "opsi singkat 2", "opsi singkat 3"]} - isi array dengan 3 balasan singkat yang relevan untuk user pilih selanjutnya.`;
 
 app.post("/api/chat", authMiddleware, async (c) => {
   const parsed = chatInput.safeParse(await c.req.json().catch(() => null));
@@ -306,40 +374,55 @@ app.post("/api/chat", authMiddleware, async (c) => {
     { role: "user", content: parsed.data.message },
   ];
 
-  await db
-    .insert(chatMessages)
-    .values({ userId: user.id, role: "user", content: parsed.data.message });
   const result =
     aiProvider === "gemini"
       ? await askGemini(messages)
       : await askOllama(messages);
-  if (!result.ok) {
+
+  if (!result.ok || !result.text) {
     return c.json(
-      { error: "AI model is unavailable", detail: result.detail },
+      {
+        error: "AI model is unavailable",
+        message: "AI sedang sibuk, coba kirim lagi sebentar.",
+        detail: result.ok ? "Empty reply" : result.detail,
+      },
       503,
     );
   }
-  const rawAnswer = result.text || "Maaf, model belum mengembalikan jawaban.";
 
-  let answer = rawAnswer;
+  let answer = result.text;
   let quickReplies: string[] = [];
-  const jsonMatch = rawAnswer.match(/\{[\s\S]*"quick_replies"[\s\S]*\}\s*$/);
+  const jsonMatch = answer.match(/\{[\s\S]*"quick_replies"[\s\S]*\}\s*$/);
   if (jsonMatch) {
     try {
-      const parsed = JSON.parse(jsonMatch[0]);
-      if (Array.isArray(parsed.quick_replies)) {
-        quickReplies = parsed.quick_replies;
-        answer = rawAnswer.slice(0, jsonMatch.index).trim();
+      const qr = JSON.parse(jsonMatch[0]);
+      if (Array.isArray(qr.quick_replies)) {
+        quickReplies = qr.quick_replies.map(String);
+        answer = answer.slice(0, jsonMatch.index).trim();
       }
     } catch {
-      // biarkan answer tetap rawAnswer kalau JSON gagal di-parse
+      // biarkan jawaban apa adanya kalau JSON gagal di-parse
     }
   }
+  answer = cleanAIReply(answer);
 
   await db
     .insert(chatMessages)
+    .values({ userId: user.id, role: "user", content: parsed.data.message });
+  await db
+    .insert(chatMessages)
     .values({ userId: user.id, role: "assistant", content: answer });
-  return c.json({ answer, quick_replies: quickReplies, model: result.model });
+  return c.json({
+    success: true,
+    // frontend lama
+    answer,
+    quick_replies: quickReplies,
+    model: result.model,
+    // frontend baru
+    conversationId: user.id,
+    userMessage: parsed.data.message,
+    aiReply: answer,
+  });
 });
 
 app.onError((error, c) => {
