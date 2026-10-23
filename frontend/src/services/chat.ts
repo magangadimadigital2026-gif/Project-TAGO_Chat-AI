@@ -103,6 +103,10 @@ export const listConversations =
     console.log("JUMLAH PERCAKAPAN:", rows.length);
     console.log("DATA PERCAKAPAN:", rows);
 
+    if (!Array.isArray(rows)) {
+      throw new Error("Format daftar percakapan dari backend tidak sesuai.");
+    }
+
     return rows
       .map((item) => ({
         id: String(item.id),
