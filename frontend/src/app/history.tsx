@@ -14,7 +14,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
 import { colors } from "../constants/palette";
 import {
   ConversationItem,
@@ -202,10 +201,9 @@ export default function HistoryScreen() {
       >
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Hapus percakapan ${item.title}`}
-          hitSlop={10}
-          onPress={() => Alert.alert("Tes", "Tombol Delete berhasil ditekan")}
-          style={styles.deleteBtn}
+          accessibilityLabel="Kembali"
+          style={styles.iconBtn}
+          onPress={() => router.back()}
         >
           <Ionicons
             name="chevron-back"
@@ -320,22 +318,14 @@ export default function HistoryScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={`Hapus percakapan ${item.title}`}
                 hitSlop={10}
-                disabled={deletingId !== null}
                 onPress={() => remove(item)}
                 style={styles.deleteBtn}
               >
-                {deletingId === item.id ? (
-                  <ActivityIndicator
-                    size="small"
-                    color={colors.primary}
-                  />
-                ) : (
-                  <Ionicons
-                    name="trash-outline"
-                    size={20}
-                    color={colors.muted}
-                  />
-                )}
+                <Ionicons
+                  name="trash-outline"
+                  size={20}
+                  color={colors.muted}
+                />
               </Pressable>
             </View>
           )}
