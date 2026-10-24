@@ -147,9 +147,12 @@ export const getConversation = async (id: string) => {
   };
 };
 
-
 export const deleteConversation = async (
-  _id: string,
+  id: string,
 ): Promise<null> => {
-  throw new Error("Fitur hapus riwayat belum tersedia di backend.");
+  await request(`/api/chat/${id}`, {
+    method: "DELETE",
+  });
+
+  return null;
 };
