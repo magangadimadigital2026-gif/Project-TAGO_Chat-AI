@@ -1,4 +1,3 @@
-
 import "dotenv/config";
 import { serve } from "@hono/node-server";
 import { cors } from "hono/cors";
@@ -38,7 +37,6 @@ async function getWeather(lat: number, lon: number): Promise<string> {
 }
 
 type AppEnv = { Variables: { user: typeof users.$inferSelect } };
-
 const app = new Hono<AppEnv>();
 const port = Number(process.env.PORT ?? 3000);
 
@@ -121,7 +119,9 @@ async function callGemini(
 
     return res;
   } catch {
-    console.log(`gemini model=${model} timeout/error ${Date.now() - started}ms`);
+    console.log(
+      `gemini model=${model} timeout/error ${Date.now() - started}ms`,
+    );
     return new Response("Gemini timeout", { status: 504 });
   }
 }
@@ -196,11 +196,7 @@ async function askGemini(messages: ChatMsg[]): Promise<AiResult> {
     }
 
     usedModel = step.model;
-    response = await callGemini(
-      step.model,
-      buildBody(step.thinking),
-      15_000,
-    );
+    response = await callGemini(step.model, buildBody(step.thinking), 15_000);
 
     if (response.ok) break;
 
@@ -229,19 +225,16 @@ async function askGemini(messages: ChatMsg[]): Promise<AiResult> {
   return { ok: true, text, model: usedModel };
 }
 
-// CORS: izinkan frontend menggunakan endpoint DELETE.
 app.use(
   "/api/*",
   cors({
     origin: "*",
     allowHeaders: ["Content-Type", "Authorization"],
-    allowMethods: ["GET", "POST", "DELETE", "OPTIONS"],
+    allowMethods: ["GET", "POST", "OPTIONS"],
   }),
 );
 
-app.get("/health", (c) =>
-  c.json({ status: "ok", service: "foodmate-api" }),
-);
+app.get("/health", (c) => c.json({ status: "ok", service: "foodmate-api" }));
 
 const authMiddleware = createMiddleware<AppEnv>(async (c, next) => {
   const header = c.req.header("Authorization");
@@ -251,9 +244,7 @@ const authMiddleware = createMiddleware<AppEnv>(async (c, next) => {
   }
 
   try {
-    const { userId } = await readAccessToken(
-      header.slice("Bearer ".length),
-    );
+    const { userId } = await readAccessToken(header.slice("Bearer ".length));
 
     const [user] = await db
       .select()
@@ -278,11 +269,8 @@ const credentials = z.object({
   password: z.string().min(8).max(128),
 });
 
-// REGISTER
 app.post("/api/auth/register", async (c) => {
-  const parsed = credentials.safeParse(
-    await c.req.json().catch(() => null),
-  );
+  const parsed = credentials.safeParse(await c.req.json().catch(() => null));
 
   if (!parsed.success) {
     return c.json(
@@ -318,15 +306,11 @@ app.post("/api/auth/register", async (c) => {
   const token = await createAccessToken(user.id, user.email);
 
   return c.json(
-    {
-      token,
-      user: { id: user.id, name: user.name, email: user.email },
-    },
+    { token, user: { id: user.id, name: user.name, email: user.email } },
     201,
   );
 });
 
-// LOGIN
 app.post("/api/auth/login", async (c) => {
   const parsed = z
     .object({
@@ -360,7 +344,6 @@ app.post("/api/auth/login", async (c) => {
   });
 });
 
-// USER LOGIN INFORMATION
 app.get("/api/auth/me", authMiddleware, (c) => {
   const user = c.get("user");
 
@@ -369,9 +352,44 @@ app.get("/api/auth/me", authMiddleware, (c) => {
   });
 });
 
-// RIWAYAT PESAN LAMA
+// Pindahkan pesan lama yang belum memiliki conversation_id
+// ke satu percakapan lama. Isi pesan tidak dihapus.
+async function adoptLegacyMessages(userId: number) {
+  const [firstMessage] = await db
+    .select({
+      id: chatMessages.id,
+      content: chatMessages.content,
+    })
+    .from(chatMessages)
+    .where(
+      and(eq(chatMessages.userId, userId), isNull(chatMessages.conversationId)),
+    )
+    .orderBy(asc(chatMessages.id))
+    .limit(1);
+
+  if (!firstMessage) return;
+
+  const [conversation] = await db
+    .insert(conversations)
+    .values({
+      userId,
+      title: firstMessage.content.slice(0, 100) || "Riwayat sebelumnya",
+    })
+    .returning({ id: conversations.id });
+
+  await db
+    .update(chatMessages)
+    .set({ conversationId: conversation.id })
+    .where(
+      and(eq(chatMessages.userId, userId), isNull(chatMessages.conversationId)),
+    );
+}
+
+// Endpoint kompatibilitas untuk riwayat lama.
 app.get("/api/chat/history", authMiddleware, async (c) => {
   const user = c.get("user");
+
+  await adoptLegacyMessages(user.id);
 
   const rows = await db
     .select({
@@ -379,104 +397,62 @@ app.get("/api/chat/history", authMiddleware, async (c) => {
       role: chatMessages.role,
       content: chatMessages.content,
       createdAt: chatMessages.createdAt,
+      conversationId: chatMessages.conversationId,
     })
     .from(chatMessages)
     .where(eq(chatMessages.userId, user.id))
-    .orderBy(asc(chatMessages.createdAt));
+    .orderBy(asc(chatMessages.id));
 
   return c.json({ messages: rows });
 });
 
-// Memasukkan pesan lama yang belum memiliki percakapan ke satu percakapan.
-async function adoptLegacyMessages(userId: number) {
-  const legacy = await db
-    .select({
-      role: chatMessages.role,
-      content: chatMessages.content,
-      createdAt: chatMessages.createdAt,
-    })
-    .from(chatMessages)
-    .where(
-      and(
-        eq(chatMessages.userId, userId),
-        isNull(chatMessages.conversationId),
-      ),
-    )
-    .orderBy(asc(chatMessages.createdAt));
-
-  if (legacy.length === 0) return;
-
-  const first = legacy.find((message) => message.role === "user") ?? legacy[0];
-  const last = legacy[legacy.length - 1];
-
-  const [conv] = await db
-    .insert(conversations)
-    .values({
-      userId,
-      title: first.content.slice(0, 50),
-      createdAt: first.createdAt,
-      updatedAt: last.createdAt,
-    })
-    .returning();
-
-  await db
-    .update(chatMessages)
-    .set({ conversationId: conv.id })
-    .where(
-      and(
-        eq(chatMessages.userId, userId),
-        isNull(chatMessages.conversationId),
-      ),
-    );
-}
-
-// DAFTAR PERCAKAPAN MILIK PENGGUNA
+// Mengambil daftar percakapan milik pengguna.
 app.get("/api/chat", authMiddleware, async (c) => {
   const user = c.get("user");
 
   await adoptLegacyMessages(user.id);
 
   const rows = await db
-    .select()
+    .select({
+      id: conversations.id,
+      title: conversations.title,
+      createdAt: conversations.createdAt,
+      updatedAt: conversations.updatedAt,
+    })
     .from(conversations)
     .where(eq(conversations.userId, user.id))
     .orderBy(desc(conversations.updatedAt));
 
-  return c.json({
-    success: true,
-    data: rows.map((row) => ({
-      id: row.id,
-      title: row.title,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-    })),
-  });
+  return c.json({ success: true, data: rows });
 });
 
-// DETAIL PERCAKAPAN
+// Mengambil pesan dari satu percakapan yang dipilih.
 app.get("/api/chat/:id", authMiddleware, async (c) => {
   const user = c.get("user");
-  const id = Number(c.req.param("id"));
+  const conversationId = Number(c.req.param("id"));
 
-  if (!Number.isSafeInteger(id) || id <= 0) {
+  if (!Number.isSafeInteger(conversationId) || conversationId < 1) {
     return c.json(
       { success: false, message: "ID percakapan tidak valid" },
       400,
     );
   }
 
-  const [conv] = await db
-    .select()
+  const [conversation] = await db
+    .select({
+      id: conversations.id,
+      title: conversations.title,
+    })
     .from(conversations)
     .where(
       and(
-        eq(conversations.id, id),
+        eq(conversations.id, conversationId),
         eq(conversations.userId, user.id),
       ),
     )
     .limit(1);
 
-  if (!conv) {
+  if (!conversation) {
     return c.json(
       { success: false, message: "Percakapan tidak ditemukan" },
       404,
@@ -494,109 +470,71 @@ app.get("/api/chat/:id", authMiddleware, async (c) => {
     .where(
       and(
         eq(chatMessages.userId, user.id),
-        eq(chatMessages.conversationId, conv.id),
+        eq(chatMessages.conversationId, conversation.id),
       ),
     )
-    .orderBy(asc(chatMessages.createdAt));
+    .orderBy(asc(chatMessages.id));
 
   return c.json({
     success: true,
     data: {
-      id: conv.id,
-      title: conv.title,
+      id: conversation.id,
+      title: conversation.title,
       messages: rows,
     },
   });
 });
 
-// HAPUS SATU PERCAKAPAN
-app.delete("/api/chat/:id", authMiddleware, async (c) => {
-  const user = c.get("user");
-  const id = Number(c.req.param("id"));
-
-  if (!Number.isSafeInteger(id) || id <= 0) {
-    return c.json(
-      { success: false, message: "ID percakapan tidak valid" },
-      400,
-    );
-  }
-
-  const [deletedConversation] = await db
-    .delete(conversations)
-    .where(
-      and(
-        eq(conversations.id, id),
-        eq(conversations.userId, user.id),
-      ),
-    )
-    .returning({ id: conversations.id });
-
-  if (!deletedConversation) {
-    return c.json(
-      { success: false, message: "Percakapan tidak ditemukan" },
-      404,
-    );
-  }
-
-  return c.json({
-    success: true,
-    message: "Percakapan berhasil dihapus",
-    data: { id: deletedConversation.id },
-  });
-});
-
-// VALIDASI INPUT CHAT
 const chatInput = z.object({
   message: z.string().trim().min(1).max(2000),
-  conversationId: z.unknown().optional(),
+  conversationId: z
+    .union([z.number().int().positive(), z.string().regex(/^\d+$/)])
+    .optional(),
   lat: z.number().optional(),
   lon: z.number().optional(),
 });
 
 const systemPrompt = `Kamu adalah FoodMate, teman ngobrol yang santai dan ramah, membantu memilih makanan. Gunakan gaya bahasa yang hangat dan emoji secukupnya. Jika info dari user belum lengkap (budget, waktu makan, selera), tanya balik dengan pertanyaan sederhana dulu, jangan langsung kasih daftar panjang. Pertimbangkan cuaca jika tersedia dalam konteks percakapan. jangan memberi diagnosis medis; sarankan cek bahan dan konsultasi profesional untuk risiko kesehatan. Jangan mengarang atau menebak komposisi/bahan spesifik suatu makanan jika tidak yakin - cukup sebut nama makanannya saja tanpa rincian bahan yang salah, atau gunakan deskripsi umum yang aman seperti "makanan/minuman khas daerah tersebut". Tulis dengan teks biasa: jangan pakai Markdown, tanda bintang, pagar, atau backtick. Untuk daftar, tulis angka dan titik di baris baru. SELALU akhiri jawabanmu dengan baris terpisah berisi JSON : {"quick_replies": ["opsi singkat 1", "opsi singkat 2", "opsi singkat 3"]} - isi array dengan 3 balasan singkat yang relevan untuk user pilih selanjutnya.`;
 
-// KIRIM PESAN CHAT
 app.post("/api/chat", authMiddleware, async (c) => {
-  const parsed = chatInput.safeParse(
-    await c.req.json().catch(() => null),
-  );
+  const parsed = chatInput.safeParse(await c.req.json().catch(() => null));
 
   if (!parsed.success) {
     return c.json(
-      { error: "Message must contain 1-2000 characters" },
+      { success: false, message: "Pesan atau ID percakapan tidak valid" },
       400,
     );
   }
 
   const user = c.get("user");
-  const requestedId = Number(parsed.data.conversationId);
-  let conversationId: number | null = null;
 
-  if (Number.isInteger(requestedId) && requestedId > 0) {
-    const [conv] = await db
-      .select()
+  await adoptLegacyMessages(user.id);
+
+  let conversationId: number | undefined;
+
+  if (parsed.data.conversationId !== undefined) {
+    conversationId = Number(parsed.data.conversationId);
+
+    const [existingConversation] = await db
+      .select({ id: conversations.id })
       .from(conversations)
       .where(
         and(
-          eq(conversations.id, requestedId),
+          eq(conversations.id, conversationId),
           eq(conversations.userId, user.id),
         ),
       )
       .limit(1);
 
-    if (!conv) {
+    if (!existingConversation) {
       return c.json(
-        {
-          error: "Conversation not found",
-          message: "Percakapan tidak ditemukan",
-        },
+        { success: false, message: "Percakapan tidak ditemukan" },
         404,
       );
     }
-
-    conversationId = conv.id;
   }
 
+  // Konteks AI hanya mengambil pesan dari percakapan yang aktif.
   const recent = conversationId
     ? await db
         .select({
@@ -610,7 +548,7 @@ app.post("/api/chat", authMiddleware, async (c) => {
             eq(chatMessages.conversationId, conversationId),
           ),
         )
-        .orderBy(desc(chatMessages.createdAt))
+        .orderBy(desc(chatMessages.id))
         .limit(12)
     : [];
 
@@ -619,15 +557,16 @@ app.post("/api/chat", authMiddleware, async (c) => {
       ? await getWeather(parsed.data.lat, parsed.data.lon)
       : "";
 
-  const messages: ChatMsg[] = [
+  const messages = [
     {
       role: "system",
       content:
         systemPrompt + (weatherContext ? `\n\nKonteks: ${weatherContext}` : ""),
     },
-    ...recent
-      .reverse()
-      .map((item) => ({ role: item.role, content: item.content })),
+    ...recent.reverse().map((item) => ({
+      role: item.role,
+      content: item.content,
+    })),
     { role: "user", content: parsed.data.message },
   ];
 
@@ -639,6 +578,7 @@ app.post("/api/chat", authMiddleware, async (c) => {
   if (!result.ok || !result.text) {
     return c.json(
       {
+        success: false,
         error: "AI model is unavailable",
         message: "AI sedang sibuk, coba kirim lagi sebentar.",
         detail: result.ok ? "Empty reply" : result.detail,
@@ -661,37 +601,40 @@ app.post("/api/chat", authMiddleware, async (c) => {
         answer = answer.slice(0, jsonMatch.index).trim();
       }
     } catch {
-      // Pertahankan jawaban jika JSON quick replies tidak valid.
+      // Biarkan jawaban tetap tersedia jika JSON tidak valid.
     }
   }
 
   answer = cleanAIReply(answer);
 
-  if (!conversationId) {
-    const [conv] = await db
+  // Buat percakapan baru hanya setelah AI berhasil menjawab.
+  if (conversationId === undefined) {
+    const [newConversation] = await db
       .insert(conversations)
       .values({
         userId: user.id,
-        title: parsed.data.message.slice(0, 50),
+        title: parsed.data.message.slice(0, 100),
       })
-      .returning();
+      .returning({ id: conversations.id });
 
-    conversationId = conv.id;
+    conversationId = newConversation.id;
   }
 
-  await db.insert(chatMessages).values({
-    userId: user.id,
-    conversationId,
-    role: "user",
-    content: parsed.data.message,
-  });
-
-  await db.insert(chatMessages).values({
-    userId: user.id,
-    conversationId,
-    role: "assistant",
-    content: answer,
-  });
+  // Simpan pesan user dan AI ke percakapan yang sama.
+  await db.insert(chatMessages).values([
+    {
+      userId: user.id,
+      conversationId,
+      role: "user",
+      content: parsed.data.message,
+    },
+    {
+      userId: user.id,
+      conversationId,
+      role: "assistant",
+      content: answer,
+    },
+  ]);
 
   await db
     .update(conversations)
@@ -705,18 +648,15 @@ app.post("/api/chat", authMiddleware, async (c) => {
 
   return c.json({
     success: true,
-    // Kompatibilitas dengan frontend lama.
     answer,
     quick_replies: quickReplies,
     model: result.model,
-    // Data untuk frontend baru.
     conversationId,
     userMessage: parsed.data.message,
     aiReply: answer,
   });
 });
 
-// PENANGANAN ERROR
 app.onError((error, c) => {
   console.error(error);
   return c.json({ error: "Internal server error" }, 500);
