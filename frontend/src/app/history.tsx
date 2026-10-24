@@ -202,9 +202,10 @@ export default function HistoryScreen() {
       >
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Kembali"
-          style={styles.iconBtn}
-          onPress={() => router.back()}
+          accessibilityLabel={`Hapus percakapan ${item.title}`}
+          hitSlop={10}
+          onPress={() => Alert.alert("Tes", "Tombol Delete berhasil ditekan")}
+          style={styles.deleteBtn}
         >
           <Ionicons
             name="chevron-back"
