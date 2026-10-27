@@ -230,7 +230,7 @@ app.use(
   cors({
     origin: "*",
     allowHeaders: ["Content-Type", "Authorization"],
-    allowMethods: ["GET", "POST", "OPTIONS"],
+    allowMethods: ["GET", "POST", "DELETE", "OPTIONS"],
   }),
 );
 
@@ -483,6 +483,58 @@ app.get("/api/chat/:id", authMiddleware, async (c) => {
       messages: rows,
     },
   });
+});
+
+// Menghapus satu percakapan beserta semua pesannya.
+app.delete("/api/chat/:id", authMiddleware, async (c) => {
+  const user = c.get("user");
+  const conversationId = Number(c.req.param("id"));
+
+  if (!Number.isSafeInteger(conversationId) || conversationId < 1) {
+    return c.json(
+      { success: false, message: "ID percakapan tidak valid" },
+      400,
+    );
+  }
+
+  const [conversation] = await db
+    .select({ id: conversations.id })
+    .from(conversations)
+    .where(
+      and(
+        eq(conversations.id, conversationId),
+        eq(conversations.userId, user.id),
+      ),
+    )
+    .limit(1);
+
+  if (!conversation) {
+    return c.json(
+      { success: false, message: "Percakapan tidak ditemukan" },
+      404,
+    );
+  }
+
+  // Hapus pesan dulu, baru percakapannya.
+  await db
+    .delete(chatMessages)
+    .where(
+      and(
+        eq(chatMessages.userId, user.id),
+        eq(chatMessages.conversationId, conversation.id),
+      ),
+    );
+
+  await db
+    .delete(conversations)
+    .where(
+      and(
+        eq(conversations.id, conversation.id),
+        eq(conversations.userId, user.id),
+      ),
+    );
+
+  return c.json({ success: true, message: "Percakapan dihapus" });
 });
 
 const chatInput = z.object({

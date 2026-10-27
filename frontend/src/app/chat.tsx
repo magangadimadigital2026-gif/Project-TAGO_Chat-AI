@@ -57,9 +57,9 @@ export default function ChatScreen() {
     })();
   }, []);
 
-    // Buka percakapan lama (id), mulai baru (fresh), atau muat riwayat terakhir.
+    // Buka percakapan lama (id), atau mulai percakapan baru.
     useEffect(() => {
-      const target = id ?? (fresh ? undefined : "default");
+      const target = id;
       setConvId(target);
       setMessages([]);
       setSuggestions([]);
