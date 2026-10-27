@@ -104,15 +104,11 @@ export const listConversations =
   async (): Promise<ConversationItem[]> => {
     const rows = await request<ConversationRow[]>("/api/chat");
 
-    console.log("DATA PERCAKAPAN:", rows);
-
     if (!Array.isArray(rows)) {
       throw new Error(
         "Format daftar percakapan dari backend tidak sesuai."
       );
     }
-
-    console.log("JUMLAH PERCAKAPAN:", rows.length);
 
     return rows
       .map((item) => ({
@@ -155,8 +151,7 @@ export const getConversation = async (id: string) => {
   };
 };
 
-// Backend saat ini belum menyediakan endpoint hapus percakapan.
-// Fungsi ini belum bisa menghapus data dari database.
+// Menghapus satu percakapan beserta pesannya.
 export const deleteConversation = async (
   id: string,
 ): Promise<null> => {
