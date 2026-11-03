@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Redirect } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { Loading } from "../components/ui";
 import { colors } from "../constants/palette";
 
 // Cek sesi: ada token -> Chat, tidak ada -> Login.
@@ -12,12 +12,6 @@ export default function Index() {
     AsyncStorage.getItem("token").then((t) => setTarget(t ? "/chat" : "/login"));
   }, []);
 
-  if (!target) {
-    return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.bg }}>
-        <ActivityIndicator color={colors.primary} />
-      </View>
-    );
-  }
+  if (!target) return <Loading style={{ backgroundColor: colors.bg }} />;
   return <Redirect href={target} />;
 }

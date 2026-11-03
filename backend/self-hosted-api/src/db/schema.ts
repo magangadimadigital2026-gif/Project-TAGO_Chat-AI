@@ -1,4 +1,12 @@
-import { pgTable, serial, text, varchar, timestamp, integer, pgEnum } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  serial,
+  text,
+  varchar,
+  timestamp,
+  integer,
+  pgEnum,
+} from "drizzle-orm/pg-core";
 
 export const roleEnum = pgEnum("role", ["user", "assistant"]);
 
@@ -13,9 +21,25 @@ export const users = pgTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
+export const conversations = pgTable("conversations", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  title: varchar("title", { length: 100 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const chatMessages = pgTable("chat_messages", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  conversationId: integer("conversation_id").references(
+    () => conversations.id,
+    { onDelete: "cascade" },
+  ),
   role: roleEnum("role").notNull(),
   content: text("content").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),

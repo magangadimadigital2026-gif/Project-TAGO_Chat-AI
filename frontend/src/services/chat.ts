@@ -1,6 +1,6 @@
 
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_URL } from "../constants/api";
+import { getToken } from "./session";
 
 // Data rekomendasi makanan
 export type Rec = {
@@ -38,7 +38,7 @@ async function request<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
-  const token = await AsyncStorage.getItem("token");
+  const token = await getToken();
 
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
@@ -73,18 +73,20 @@ export const sendMessage = async (
     body.conversationId = Number(conversationId);
   }
 
-  const result = await request<{
+   const result = await request<{
     conversationId: number;
     userMessage: string;
     aiReply: string;
+    quick_replies?: string[];
   }>("/api/chat", {
     method: "POST",
     body: JSON.stringify(body),
   });
 
-  return {
+    return {
     conversationId: String(result.conversationId),
     reply: result.aiReply,
+    suggestions: result.quick_replies ?? [],
   };
 };
 
@@ -97,12 +99,10 @@ type ConversationRow = {
 };
 
 // Mengambil daftar percakapan
+
 export const listConversations =
   async (): Promise<ConversationItem[]> => {
     const rows = await request<ConversationRow[]>("/api/chat");
-    console.log("JUMLAH PERCAKAPAN:", rows.length);
-    console.log("DATA PERCAKAPAN:", rows);
-
     if (!Array.isArray(rows)) {
       throw new Error("Format daftar percakapan dari backend tidak sesuai.");
     }
@@ -110,17 +110,18 @@ export const listConversations =
     return rows
       .map((item) => ({
         id: String(item.id),
-        title: item.title,
-        lastMessage: item.title,
+        title: item.title || "Percakapan baru",
+        lastMessage: item.title || "",
         updatedAt: item.updatedAt ?? item.createdAt,
       }))
       .sort(
         (a, b) =>
           new Date(b.updatedAt).getTime() -
-          new Date(a.updatedAt).getTime(),
+          new Date(a.updatedAt).getTime()
       )
       .slice(0, 10);
   };
+
 
 // Mengambil detail satu percakapan
 export const getConversation = async (id: string) => {
@@ -147,10 +148,9 @@ export const getConversation = async (id: string) => {
   };
 };
 
-export const deleteConversation = async (
-  id: string,
-): Promise<null> => {
-  await request(`/api/chat/${id}`, {
+// Menghapus satu percakapan beserta pesannya.
+export const deleteConversation = async (id: string): Promise<null> => {
+  await request<unknown>(`/api/chat/${id}`, {
     method: "DELETE",
   });
 
