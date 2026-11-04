@@ -1,6 +1,6 @@
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_URL } from "../constants/api";
-import { getToken } from "./session";
 
 // Data rekomendasi makanan
 export type Rec = {
@@ -38,7 +38,7 @@ async function request<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
-  const token = await getToken();
+  const token = await AsyncStorage.getItem("token");
 
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
@@ -103,8 +103,11 @@ type ConversationRow = {
 export const listConversations =
   async (): Promise<ConversationItem[]> => {
     const rows = await request<ConversationRow[]>("/api/chat");
+
     if (!Array.isArray(rows)) {
-      throw new Error("Format daftar percakapan dari backend tidak sesuai.");
+      throw new Error(
+        "Format daftar percakapan dari backend tidak sesuai."
+      );
     }
 
     return rows
@@ -149,7 +152,9 @@ export const getConversation = async (id: string) => {
 };
 
 // Menghapus satu percakapan beserta pesannya.
-export const deleteConversation = async (id: string): Promise<null> => {
+export const deleteConversation = async (
+  id: string,
+): Promise<null> => {
   await request<unknown>(`/api/chat/${id}`, {
     method: "DELETE",
   });
