@@ -30,7 +30,7 @@ npm run dev
 ```
 (Catatan: backend ini butuh PostgreSQL dan GEMINI_API_KEY — tanya DevOps (Shodiq) untuk setup awal kalau belum ada)
 
-**Kalau kamu pegang Frontend:**
+**Contoh kalau kamu di frontend:**
 ```bash
 cd frontend
 npm install
