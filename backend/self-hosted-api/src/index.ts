@@ -4,6 +4,7 @@ import { cors } from "hono/cors";
 import { Hono } from "hono";
 import { authRoutes } from "./routes/auth.js";
 import { chatRoutes } from "./routes/chat.js";
+import { restaurantRoutes } from "./routes/restaurants.js";
 import type { AppEnv } from "./types.js";
 
 const app = new Hono<AppEnv>();
@@ -22,6 +23,7 @@ app.get("/health", (c) => c.json({ status: "ok", service: "foodmate-api" }));
 
 app.route("/api/auth", authRoutes);
 app.route("/api/chat", chatRoutes);
+app.route("/api/restaurants", restaurantRoutes);
 
 app.onError((error, c) => {
   console.error(error);
