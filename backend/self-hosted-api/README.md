@@ -29,6 +29,7 @@ pnpm start
 - `DATABASE_URL`
 - `JWT_SECRET`
 - `JWT_EXPIRES_IN`
-hapus OLLAMA_URL dan OLLAMA_MODEL; pastikan daftar variabel memuat GEMINI_API_KEY, GEMINI_MODEL, GEMINI_FALLBACK_MODEL (tambahkan yang belum ada)
-
+- `GEMINI_API_KEY`
+- `GEMINI_MODEL`
+-  `GEMINI_FALLBACK_MODEL`
 - `PORT`
