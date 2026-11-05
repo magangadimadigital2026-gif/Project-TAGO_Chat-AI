@@ -1,12 +1,12 @@
 # FoodMate Self-hosted API
 
-REST API Hono untuk deployment mandiri dengan PostgreSQL dan Ollama.
+REST API Hono untuk deployment mandiri dengan PostgreSQL dan Gemini.
 
 ## Local run tanpa Docker
 
 ```bash
 cp ../.env.selfhosted.example .env
-# edit DATABASE_URL menjadi PostgreSQL lokal dan pastikan Ollama aktif
+# edit DATABASE_URL menjadi PostgreSQL lokal dan isi GEMINI_API_KEY
 pnpm install --no-frozen-lockfile --ignore-scripts
 ./node_modules/.bin/tsc --noEmit
 pnpm db:push
@@ -22,13 +22,13 @@ pnpm start
 | POST | `/api/auth/login` | Tidak | `{ email, password }` |
 | GET | `/api/auth/me` | Bearer JWT | Profil user |
 | GET | `/api/chat/history` | Bearer JWT | Riwayat chat |
-| POST | `/api/chat` | Bearer JWT | `{ message }`, diteruskan ke Ollama |
+| POST | /api/chat| Bearer JWT |{ message }, diteruskan ke Gemini |
 
 ## Environment
 
 - `DATABASE_URL`
 - `JWT_SECRET`
 - `JWT_EXPIRES_IN`
-- `OLLAMA_URL`
-- `OLLAMA_MODEL`
+hapus OLLAMA_URL dan OLLAMA_MODEL; pastikan daftar variabel memuat GEMINI_API_KEY, GEMINI_MODEL, GEMINI_FALLBACK_MODEL (tambahkan yang belum ada)
+
 - `PORT`
