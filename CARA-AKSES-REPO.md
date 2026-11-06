@@ -28,9 +28,9 @@ cd backend/self-hosted-api
 npm install
 npm run dev
 ```
-(Catatan: backend ini butuh PostgreSQL dan GEMINI_API_KEY — tanya DevOps (Shodiq) untuk setup awal kalau belum ada)
+(Catatan: backend ini butuh PostgreSQL & Ollama jalan dulu — tanya DevOps (Shodiq) untuk setup awal kalau belum ada)
 
-**Contoh kalau kamu di frontend:**
+**Kalau kamu pegang Frontend:**
 ```bash
 cd frontend
 npm install
@@ -51,7 +51,7 @@ git commit -m "jelaskan singkat apa yang diubah"
 git push
 ```
 
-** kalau kamu frontend:**
+**Contoh kalau kamu di frontend:**
 ```bash
 git add frontend/
 git commit -m "frontend: perbaiki tampilan halaman login"
