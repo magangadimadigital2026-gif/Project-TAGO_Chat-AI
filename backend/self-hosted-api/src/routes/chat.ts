@@ -7,6 +7,11 @@ import { authMiddleware } from "../middleware/auth.js";
 import { askAI, extractQuickReplies } from "../lib/ai.js";
 import { systemPrompt } from "../lib/prompt.js";
 import { getWeather } from "../lib/weather.js";
+import {
+  buildRestaurantContext,
+  extractRecommendations,
+  toRecommendations,
+} from "../lib/restaurants.js";
 import type { AppEnv } from "../types.js";
 
 const chatInput = z.object({
@@ -271,7 +276,9 @@ chatRoutes.post("/", authMiddleware, async (c) => {
     {
       role: "system",
       content:
-        systemPrompt + (weatherContext ? `\n\nKonteks: ${weatherContext}` : ""),
+        systemPrompt +
+        (weatherContext ? `\n\nKonteks: ${weatherContext}` : "") +
+        `\n\n${buildRestaurantContext()}`,
     },
     ...recent.reverse().map((item) => ({
       role: item.role,
@@ -294,7 +301,12 @@ chatRoutes.post("/", authMiddleware, async (c) => {
     );
   }
 
-  const { answer, quickReplies } = extractQuickReplies(result.text);
+  // Ambil id restoran yang direkomendasikan AI, lalu isi detailnya dari data.
+  const { text: replyText, ids: recommendedIds } = extractRecommendations(
+    result.text,
+  );
+  const { answer, quickReplies } = extractQuickReplies(replyText);
+  const recommendations = toRecommendations(recommendedIds);
 
   // Buat percakapan baru hanya setelah AI berhasil menjawab.
   if (conversationId === undefined) {
@@ -339,6 +351,7 @@ chatRoutes.post("/", authMiddleware, async (c) => {
     success: true,
     answer,
     quick_replies: quickReplies,
+    recommendations,
     model: result.model,
     conversationId,
     userMessage: parsed.data.message,
