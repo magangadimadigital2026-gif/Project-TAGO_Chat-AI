@@ -1,6 +1,6 @@
 # DevOps — TAGO Chat AI
 
-Panduan menjalankan seluruh stack (Backend self-hosted + PostgreSQL + Ollama) secara lokal maupun di server sendiri.
+Panduan menjalankan seluruh stack (Backend self-hosted + PostgreSQL) secara lokal maupun di server sendiri.
 
 ## Struktur Project
 

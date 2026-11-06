@@ -1,12 +1,8 @@
 import type { AiResult, ChatMsg } from "../types.js";
 import { askGemini } from "./gemini.js";
-import { askOllama } from "./ollama.js";
-
-const aiProvider = (process.env.AI_PROVIDER ?? "ollama").toLowerCase();
-
-/** Pilih penyedia AI sesuai AI_PROVIDER ("gemini" atau default "ollama"). */
+/** Semua permintaan AI diteruskan ke Gemini. */
 export function askAI(messages: ChatMsg[]): Promise<AiResult> {
-  return aiProvider === "gemini" ? askGemini(messages) : askOllama(messages);
+  return askGemini(messages);
 }
 
 export function cleanAIReply(text: string): string {
