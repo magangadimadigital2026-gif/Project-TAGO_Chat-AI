@@ -22,7 +22,7 @@ pnpm start
 | POST | `/api/auth/login` | Tidak | `{ email, password }` |
 | GET | `/api/auth/me` | Bearer JWT | Profil user |
 | GET | `/api/chat/history` | Bearer JWT | Riwayat chat |
-| POST | /api/chat| Bearer JWT |{ message }, diteruskan ke Gemini |
+| POST | `/api/chat` | Bearer JWT | `{ message }`, diteruskan ke Gemini |
 
 ## Environment
 
@@ -31,5 +31,5 @@ pnpm start
 - `JWT_EXPIRES_IN`
 - `GEMINI_API_KEY`
 - `GEMINI_MODEL`
--  `GEMINI_FALLBACK_MODEL`
+- `GEMINI_FALLBACK_MODEL`
 - `PORT`

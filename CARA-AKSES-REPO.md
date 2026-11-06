@@ -28,7 +28,7 @@ cd backend/self-hosted-api
 npm install
 npm run dev
 ```
-(Catatan: backend ini butuh PostgreSQL & Ollama jalan dulu — tanya DevOps (Shodiq) untuk setup awal kalau belum ada)
+(Catatan: backend ini butuh PostgreSQL dan GEMINI_API_KEY — tanya DevOps (Shodiq) untuk setup awal kalau belum ada)
 
 **Kalau kamu pegang Frontend:**
 ```bash
