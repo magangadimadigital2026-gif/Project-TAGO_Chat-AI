@@ -10,6 +10,7 @@ import { getWeather } from "../lib/weather.js";
 import {
   buildRestaurantContext,
   extractRecommendations,
+  selectRestaurants,
   toRecommendations,
 } from "../lib/restaurants.js";
 import type { AppEnv } from "../types.js";
@@ -272,13 +273,22 @@ chatRoutes.post("/", authMiddleware, async (c) => {
       ? await getWeather(parsed.data.lat, parsed.data.lon)
       : "";
 
+  // Pilih tempat yang cocok dengan pesan (dan pesan user sebelumnya di percakapan ini).
+  const searchText = [
+    ...recent
+      .filter((item) => item.role === "user")
+      .map((item) => item.content),
+    parsed.data.message,
+  ].join(" ");
+  const candidates = selectRestaurants(searchText);
+
   const messages = [
     {
       role: "system",
       content:
         systemPrompt +
         (weatherContext ? `\n\nKonteks: ${weatherContext}` : "") +
-        `\n\n${buildRestaurantContext()}`,
+        `\n\n${buildRestaurantContext(candidates)}`,
     },
     ...recent.reverse().map((item) => ({
       role: item.role,
@@ -304,6 +314,7 @@ chatRoutes.post("/", authMiddleware, async (c) => {
   // Ambil id restoran yang direkomendasikan AI, lalu isi detailnya dari data.
   const { text: replyText, ids: recommendedIds } = extractRecommendations(
     result.text,
+    candidates.map((item) => item.id),
   );
   const { answer, quickReplies } = extractQuickReplies(replyText);
   const recommendations = toRecommendations(recommendedIds);
