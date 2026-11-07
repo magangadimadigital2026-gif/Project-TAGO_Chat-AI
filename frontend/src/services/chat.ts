@@ -1,12 +1,17 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_URL } from "../constants/api";
+import { toRecs } from "../utils/recommendation";
 
 // Data rekomendasi makanan
 export type Rec = {
   name: string;
   reason: string;
   imageUrl?: string;
+  address?: string;
+  distanceKm?: number;
+  etaMinutes?: number;
+  menu?: string[];
 };
 
 // Data balasan AI
@@ -78,6 +83,7 @@ export const sendMessage = async (
     userMessage: string;
     aiReply: string;
     quick_replies?: string[];
+    recommendations?: unknown[];
   }>("/api/chat", {
     method: "POST",
     body: JSON.stringify(body),
@@ -86,6 +92,7 @@ export const sendMessage = async (
     return {
     conversationId: String(result.conversationId),
     reply: result.aiReply,
+    recommendations: toRecs(result.recommendations),
     suggestions: result.quick_replies ?? [],
   };
 };
