@@ -1,8 +1,7 @@
-// Kartu rekomendasi makanan
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image, StyleSheet, Text, View } from "react-native";
 import { colors } from "../../constants/palette";
-import type { Rec } from "../../services/chat";
+import type { Rec } from "../../types/chat";
 
 export function RecommendationCard({ rec }: { rec: Rec }) {
   // Jarak dan estimasi
@@ -29,8 +28,7 @@ export function RecommendationCard({ rec }: { rec: Rec }) {
           <Text style={styles.reason} numberOfLines={1}>{rec.address}</Text>
         )}
         {!!rec.reason && <Text style={styles.reason}>{rec.reason}</Text>}
-        {/* Maksimal 3 menu supaya kartu tidak terlalu panjang */}
-        {!!rec.menu?.length && (
+        {/* Maksimal 3 menu */}        {!!rec.menu?.length && (
           <Text style={styles.reason} numberOfLines={2}>
             Menu: {rec.menu.slice(0, 3).join(", ")}
           </Text>
