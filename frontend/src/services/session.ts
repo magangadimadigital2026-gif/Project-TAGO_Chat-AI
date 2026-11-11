@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { clearPassword, savePassword } from "../utils/secret";
 
-// Semua akses data sesi (token, nama, email, password) lewat file ini.
+// Semua akses (token, nama, email, password) 
 const KEY = { token: "token", name: "userName", email: "userEmail" };
 
 export const getToken = () => AsyncStorage.getItem(KEY.token);

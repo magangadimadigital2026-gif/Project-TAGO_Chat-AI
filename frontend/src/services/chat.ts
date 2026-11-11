@@ -1,13 +1,11 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_URL } from "../constants/api";
+import { toRecs } from "../utils/recommendation";
 
-// Data rekomendasi makanan
-export type Rec = {
-  name: string;
-  reason: string;
-  imageUrl?: string;
-};
+// Rec ada di types/chat.ts, di-export ulang supaya import lama tetap jalan
+import type { Rec } from "../types/chat";
+export type { Rec } from "../types/chat";
 
 // Data balasan AI
 export type ChatReply = {
@@ -73,19 +71,22 @@ export const sendMessage = async (
     body.conversationId = Number(conversationId);
   }
 
-   const result = await request<{
+  const result = await request<{
     conversationId: number;
     userMessage: string;
     aiReply: string;
     quick_replies?: string[];
+    recommendations?: unknown[];
   }>("/api/chat", {
     method: "POST",
     body: JSON.stringify(body),
   });
 
-    return {
+  return {
     conversationId: String(result.conversationId),
     reply: result.aiReply,
+    // Rekomendasi restoran dari backend, kosong jika tidak ada
+    recommendations: toRecs(result.recommendations),
     suggestions: result.quick_replies ?? [],
   };
 };
@@ -136,6 +137,7 @@ export const getConversation = async (id: string) => {
       role: string;
       content: string;
       createdAt: string;
+      recommendations?: unknown[];
     }[];
   }>(`/api/chat/${id}`);
 
@@ -146,6 +148,7 @@ export const getConversation = async (id: string) => {
         id: String(message.id),
         role: message.role === "assistant" ? "ai" : "user",
         text: message.content,
+        recommendations: toRecs(message.recommendations),
       }),
     ),
   };

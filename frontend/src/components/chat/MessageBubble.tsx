@@ -10,7 +10,7 @@ export function MessageBubble({ msg, onRetry }: { msg: Msg; onRetry: () => void 
     <View style={{ alignItems: mine ? "flex-end" : "flex-start", marginBottom: 14 }}>
       <View style={[styles.bubble, mine ? styles.mine : styles.ai]}>
         <Text style={[styles.text, mine && { color: colors.onPrimary }]}>{msg.text}</Text>
-        {!mine && msg.recs?.map((r) => <RecommendationCard key={r.name} rec={r} />)}
+        {!mine && msg.recs?.map((r, i) => <RecommendationCard key={`${r.name}-${i}`} rec={r} />)}
       </View>
 
       {msg.failed && (
