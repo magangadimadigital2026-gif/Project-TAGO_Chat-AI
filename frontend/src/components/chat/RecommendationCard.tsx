@@ -12,23 +12,32 @@ export function RecommendationCard({ rec }: { rec: Rec }) {
     .filter(Boolean)
     .join(" · ");
 
+  // Alasan disembunyikan jika hanya mengulang alamat atau menu
+  const showReason =
+    !!rec.reason &&
+    !(rec.address && rec.reason.includes(rec.address)) &&
+    !rec.reason.includes("Menu:");
+
   return (
     <View style={styles.rec}>
+      {/* Foto restoran di kiri, jika tidak ada tampil ikon */}
       <View style={styles.thumb}>
         {rec.imageUrl ? (
           <Image source={{ uri: rec.imageUrl }} style={styles.img} />
         ) : (
-          <Ionicons name="restaurant-outline" size={24} color={colors.primary} />
+          <Ionicons name="restaurant-outline" size={32} color={colors.primary} />
         )}
       </View>
+
       <View style={{ flex: 1 }}>
         <Text style={styles.name}>{rec.name}</Text>
         {!!meta && <Text style={styles.meta}>{meta}</Text>}
         {!!rec.address && (
-          <Text style={styles.reason} numberOfLines={1}>{rec.address}</Text>
+          <Text style={styles.reason} numberOfLines={2}>{rec.address}</Text>
         )}
-        {!!rec.reason && <Text style={styles.reason}>{rec.reason}</Text>}
-        {/* Maksimal 3 menu */}        {!!rec.menu?.length && (
+        {showReason && <Text style={styles.reason}>{rec.reason}</Text>}
+        {/* Maksimal 3 menu supaya tidak panjang */}
+        {!!rec.menu?.length && (
           <Text style={styles.reason} numberOfLines={2}>
             Menu: {rec.menu.slice(0, 3).join(", ")}
           </Text>
@@ -47,16 +56,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 10,
   },
+  // Ukuran foto
   thumb: {
-    width: 52,
-    height: 52,
+    width: 80,
+    height: 80,
     borderRadius: 12,
     backgroundColor: colors.card,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
   },
-  img: { width: 52, height: 52 },
+  img: { width: 80, height: 80 },
   name: { fontSize: 14, fontWeight: "700", color: colors.ink },
   meta: { fontSize: 12, fontWeight: "600", color: colors.primary, marginTop: 2 },
   reason: { fontSize: 13, color: colors.muted, marginTop: 2 },
