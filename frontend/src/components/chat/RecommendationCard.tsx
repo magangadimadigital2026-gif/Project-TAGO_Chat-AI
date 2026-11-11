@@ -1,73 +1,180 @@
+
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image, StyleSheet, Text, View } from "react-native";
 import { colors } from "../../constants/palette";
 import type { Rec } from "../../types/chat";
 
-export function RecommendationCard({ rec }: { rec: Rec }) {
-  // Jarak dan estimasi
+// Fungsi untuk menampilkan teks dengan tanda titik di depannya
+function Bullet({ text, lines }: { text: string; lines?: number }) {
+  return (
+    <View style={styles.bulletRow}>
+      <Text style={styles.dot}>•</Text>
+      <Text style={styles.bulletText} numberOfLines={lines}>
+        {text}
+      </Text>
+    </View>
+  );
+}
+
+// Komponen untuk menampilkan informasi rekomendasi restoran
+// rec berisi data restoran, sedangkan index berisi nomor urut restoran
+export function RecommendationCard({
+  rec,
+  index,
+}: {
+  rec: Rec;
+  index: number;
+}) {
+  // Mengambil jarak dan waktu perjalanan jika datanya tersedia
   const meta = [
     rec.distanceKm !== undefined ? `${rec.distanceKm} km` : null,
     rec.etaMinutes !== undefined ? `${rec.etaMinutes} menit` : null,
   ]
+    // Menghapus data yang kosong
     .filter(Boolean)
+    // Menggabungkan jarak dan waktu menjadi satu teks
     .join(" · ");
 
-  // Alasan disembunyikan jika hanya mengulang alamat atau menu
+  // Menentukan apakah alasan rekomendasi perlu ditampilkan
+  // Alasan disembunyikan jika kosong, mengulang alamat, atau berisi informasi menu
   const showReason =
     !!rec.reason &&
     !(rec.address && rec.reason.includes(rec.address)) &&
     !rec.reason.includes("Menu:");
 
   return (
-    <View style={styles.rec}>
-      {/* Foto restoran di kiri, jika tidak ada tampil ikon */}
+    // Menampilkan satu kartu restoran
+    // Jika bukan restoran pertama, tambahkan garis pemisah
+    <View style={[styles.item, index > 0 && styles.divider]}>
+
+      {/* Menampilkan foto restoran atau ikon jika foto tidak tersedia */}
       <View style={styles.thumb}>
         {rec.imageUrl ? (
           <Image source={{ uri: rec.imageUrl }} style={styles.img} />
         ) : (
-          <Ionicons name="restaurant-outline" size={32} color={colors.primary} />
+          <Ionicons
+            name="restaurant-outline"
+            size={32}
+            color={colors.primary}
+          />
         )}
       </View>
 
-      <View style={{ flex: 1 }}>
-        <Text style={styles.name}>{rec.name}</Text>
-        {!!meta && <Text style={styles.meta}>{meta}</Text>}
-        {!!rec.address && (
-          <Text style={styles.reason} numberOfLines={2}>{rec.address}</Text>
+      {/* Bagian untuk menampilkan informasi restoran */}
+      <View style={styles.info}>
+
+        {/* Menampilkan nomor urut dan nama restoran */}
+        <Text style={styles.name}>
+          {index + 1}. {rec.name}
+        </Text>
+
+        {/* Menampilkan jarak dan waktu jika tersedia */}
+        {!!meta && (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{meta}</Text>
+          </View>
         )}
-        {showReason && <Text style={styles.reason}>{rec.reason}</Text>}
-        {/* Maksimal 3 menu supaya tidak panjang */}
+
+        {/* Menampilkan maksimal 3 menu restoran */}
         {!!rec.menu?.length && (
-          <Text style={styles.reason} numberOfLines={2}>
-            Menu: {rec.menu.slice(0, 3).join(", ")}
-          </Text>
+          <Bullet
+            text={`Menu: ${rec.menu.slice(0, 3).join(", ")}`}
+            lines={2}
+          />
+        )}
+
+        {/* Menampilkan alasan rekomendasi jika memenuhi kondisi */}
+        {showReason && <Bullet text={rec.reason} />}
+
+        {/* Menampilkan alamat restoran jika tersedia */}
+        {!!rec.address && (
+          <Bullet text={`Lokasi: ${rec.address}`} lines={2} />
         )}
       </View>
     </View>
   );
 }
 
+// Mengatur tampilan setiap bagian komponen
 const styles = StyleSheet.create({
-  rec: {
+
+  // Mengatur susunan kartu ke samping dan jarak antarbagian
+  item: {
     flexDirection: "row",
-    alignItems: "center",
     gap: 12,
-    backgroundColor: colors.soft,
-    borderRadius: 12,
-    padding: 10,
+    paddingVertical: 10,
   },
-  // Ukuran foto
+
+  // Memberikan garis pemisah untuk restoran berikutnya
+  divider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+
+  // Mengatur ukuran dan bentuk tempat foto restoran
   thumb: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
-    backgroundColor: colors.card,
+    width: 88,
+    height: 88,
+    borderRadius: 14,
+    backgroundColor: colors.soft,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
   },
-  img: { width: 80, height: 80 },
-  name: { fontSize: 14, fontWeight: "700", color: colors.ink },
-  meta: { fontSize: 12, fontWeight: "600", color: colors.primary, marginTop: 2 },
-  reason: { fontSize: 13, color: colors.muted, marginTop: 2 },
+
+  // Mengatur ukuran foto agar sesuai dengan tempatnya
+  img: {
+    width: 88,
+    height: 88,
+  },
+
+  // Mengatur bagian informasi agar mengisi ruang yang tersedia
+  info: {
+    flex: 1,
+    gap: 4,
+  },
+
+  // Mengatur tampilan nama restoran
+  name: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.ink,
+  },
+
+  // Mengatur bentuk dan warna label jarak dan waktu
+  badge: {
+    alignSelf: "flex-start",
+    backgroundColor: "#D6F5E3",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+
+  // Mengatur tulisan di dalam label
+  badgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#0B7A3E",
+  },
+
+  // Mengatur susunan tanda titik dan teks
+  bulletRow: {
+    flexDirection: "row",
+    gap: 6,
+  },
+
+  // Mengatur tampilan tanda titik
+  dot: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.ink,
+  },
+
+  // Mengatur tampilan teks informasi restoran
+  bulletText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.ink,
+  },
 });
