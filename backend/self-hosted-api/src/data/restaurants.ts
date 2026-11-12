@@ -7,6 +7,8 @@ export type MenuItem = {
 export type Restaurant = {
   id: number;
   placeId?: string;
+  imageUrl?: string; // link foto, diisi manual
+  mapsUrl?: string; // link Google Maps, isi manual hanya kalau mau menimpa yang otomatis
   nama: string;
   alamat: string;
   jarakKm: number;
@@ -22,6 +24,7 @@ export const restaurants: Restaurant[] = [
   {
     id: 1,
     placeId: "ChIJVfHkPonjeC4Rd6qvL18EjsQ",
+    imageUrl: "https://res.cloudinary.com/akunmu/image/upload/warung-2r.jpg",
     nama: "Warung 2R",
     alamat: "Jl. Ahmad Yani Barat No. 93, Karangwaru, Kauman, Kec. Tulungagung",
     jarakKm: 0.3,
@@ -38,6 +41,7 @@ export const restaurants: Restaurant[] = [
   {
     id: 2,
     placeId: "ChIJicRvjd_ieC4RPWEXEQNrsDM",
+    imageUrl: "https://share.google/CLU8lhLOpuowgfrW8",
     nama: "Sate Kambing Pak Kuwat",
     alamat: "Jl. M. Husni Thamrin No. 4, Kenayan, Kec. Tulungagung",
     jarakKm: 0.5,
