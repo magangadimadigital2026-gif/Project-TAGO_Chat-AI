@@ -28,6 +28,7 @@
       GEMINI_FALLBACK_MODEL: ${GEMINI_FALLBACK_MODEL:-gemini-3.1-flash-lite}
       GEMINI_THINKING_LEVEL: ${GEMINI_THINKING_LEVEL:-}
       WEATHER_API_KEY: ${WEATHER_API_KEY:-}
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
