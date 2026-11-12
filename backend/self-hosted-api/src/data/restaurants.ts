@@ -41,7 +41,7 @@ export const restaurants: Restaurant[] = [
   {
     id: 2,
     placeId: "ChIJicRvjd_ieC4RPWEXEQNrsDM",
-    imageUrl: "https://share.google/CLU8lhLOpuowgfrW8",
+    imageUrl: "https://imgur.com/BcRSBLh",
     nama: "Sate Kambing Pak Kuwat",
     alamat: "Jl. M. Husni Thamrin No. 4, Kenayan, Kec. Tulungagung",
     jarakKm: 0.5,
@@ -77,6 +77,7 @@ export const restaurants: Restaurant[] = [
   {
     id: 4,
     placeId: "ChIJ5SHthd_ieC4RHxpPmNq4KWo",
+    imageUrl: "https://imgur.com/pgDRl4X",
     nama: "Bakso Dan Mie Ayam Solo asli",
     alamat:
       "Jl. Pangeran Antasari No. 1, Kenayan, Kampungdalem, Kec. Tulungagung",
@@ -283,6 +284,7 @@ export const restaurants: Restaurant[] = [
   {
     id: 16,
     placeId: "ChIJOT5hCazjeC4R8VYdqHxCBTc",
+    imageUrl: "https://imgur.com/YGEX1Xk",
     nama: "Cafe Tiga Lantai Hq",
     alamat: "Jl. I Gusti Ngurah Rai No. 40, Bago, Kec. Tulungagung",
     jarakKm: 0.9,
@@ -334,6 +336,7 @@ export const restaurants: Restaurant[] = [
   {
     id: 19,
     placeId: "ChIJ13lu47XjeC4RLJM99R9viUk",
+    imageUrl: "https://imgur.com/YS3eX59",
     nama: "D'seafood Tulungagung",
     alamat: "Jl. Pangeran Diponegoro No. 24, Tamanan, Kec. Tulungagung",
     jarakKm: 1.0,
@@ -368,6 +371,7 @@ export const restaurants: Restaurant[] = [
   {
     id: 21,
     placeId: "ChIJE7riRgDjeC4R6DRUnWsTa_w",
+    imageUrl: "https://imgur.com/FIfj4Vd",
     nama: "Racotta Coffee Space Tulungagung",
     alamat: "Jl. KH Agus Salim No. 30, Kenayan, Kec. Tulungagung",
     jarakKm: 1.0,
@@ -385,6 +389,7 @@ export const restaurants: Restaurant[] = [
   {
     id: 22,
     placeId: "ChIJwa0nrB3jeC4RmhVm75-w2W0",
+    imageUrl: "https://imgur.com/yg1dSII",
     nama: "Warung Prasmanan Kartika",
     alamat: "Jl. I Gusti Ngurah Rai No. 64, Bago, Kec. Tulungagung",
     jarakKm: 1.0,
@@ -622,6 +627,7 @@ export const restaurants: Restaurant[] = [
   {
     id: 36,
     placeId: "ChIJ6ymRPYLjeC4R0bVE49FEz6g",
+    imageUrl: "https://imgur.com/K3IGHi5",
     nama: "Griyo Semar Mesem",
     alamat: "Jepun, Kec. Tulungagung",
     jarakKm: 2.3,
@@ -673,6 +679,7 @@ export const restaurants: Restaurant[] = [
   {
     id: 39,
     placeId: "ChIJuTD7NE_jeC4RD8I5bZRbN48",
+    imageUrl: "https://imgur.com/ScQA4zL",
     nama: "Bakso Dan Pangsit Mie Ayam Cak Ndut",
     alamat: "Jl. KHR Abdul Fattah, Rt 2 Rw. 3, Botoran, Kec. Tulungagung",
     jarakKm: 2.8,
@@ -742,6 +749,7 @@ export const restaurants: Restaurant[] = [
   {
     id: 43,
     placeId: "ChIJmdtbMqnieC4RLe3XVoUOtCg",
+    imageUrl: "https://imgur.com/KMKMYs8",
     nama: "Warkop Waris",
     alamat: "Jl. Lawu, Morangan, Bolorejo, Kec. Kauman",
     jarakKm: 6.0,
@@ -751,6 +759,7 @@ export const restaurants: Restaurant[] = [
       { nama: "Mie Instan Rebus Telur", harga: 9500, kategori: "makanan" },
       { nama: "Singkong Goreng", harga: 7000, kategori: "makanan" },
       { nama: "Es Kopi Susu", harga: 12000, kategori: "minuman" },
+      { nama: "Kopi Ijo", harga: 5000, kategori: "minuman" },
       { nama: "Kopi Susu", harga: 7000, kategori: "minuman" },
       { nama: "Kopi Hitam", harga: 3500, kategori: "minuman" },
     ],
@@ -775,6 +784,7 @@ export const restaurants: Restaurant[] = [
   {
     id: 45,
     placeId: "ChIJv2oUBbnjeC4Rjs7oiqKbqlo",
+    imageUrl: "https://imgur.com/sdAOEGh",
     nama: "Tegal Pule",
     alamat: "Cluwok, Bono, Kec. Boyolangu",
     jarakKm: 6.4,

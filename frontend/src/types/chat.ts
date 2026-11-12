@@ -1,3 +1,12 @@
+// Tipe data rekomendasi dan pesan di layar chat
+
+// Satu menu makanan atau minuman
+export type MenuItem = {
+  name: string;
+  price?: number;
+  category?: string;
+};
+
 // Data rekomendasi makanan
 export type Rec = {
   name: string;
@@ -6,10 +15,10 @@ export type Rec = {
   address?: string;
   distanceKm?: number;
   etaMinutes?: number;
-  menu?: string[];
+  menu?: MenuItem[];
 };
 
-// pesan yang tampil di chat
+// Satu pesan yang tampil di layar chat
 export type Msg = {
   id: string;
   role: "user" | "ai";
