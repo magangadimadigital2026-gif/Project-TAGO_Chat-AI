@@ -7,6 +7,7 @@ import { authMiddleware } from "../middleware/auth.js";
 import { askAI, extractQuickReplies } from "../lib/ai.js";
 import { systemPrompt } from "../lib/prompt.js";
 import { getWeather } from "../lib/weather.js";
+import { attachPhotos } from "../lib/places.js";
 import {
   buildRestaurantContext,
   extractRecommendations,
@@ -317,7 +318,7 @@ chatRoutes.post("/", authMiddleware, async (c) => {
     candidates.map((item) => item.id),
   );
   const { answer, quickReplies } = extractQuickReplies(replyText);
-  const recommendations = toRecommendations(recommendedIds);
+  const recommendations = await attachPhotos(toRecommendations(recommendedIds));
 
   // Buat percakapan baru hanya setelah AI berhasil menjawab.
   if (conversationId === undefined) {
