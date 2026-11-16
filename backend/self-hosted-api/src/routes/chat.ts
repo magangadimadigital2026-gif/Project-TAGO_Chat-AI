@@ -318,7 +318,13 @@ chatRoutes.post("/", authMiddleware, async (c) => {
     candidates.map((item) => item.id),
   );
   const { answer, quickReplies } = extractQuickReplies(replyText);
-  const recommendations = await attachPhotos(toRecommendations(recommendedIds));
+  const origin = new URL(c.req.url).origin;
+  const recommendations = (
+    await attachPhotos(toRecommendations(recommendedIds))
+  ).map((r) => ({
+    ...r,
+    imageUrl: r.imageUrl?.startsWith("/") ? origin + r.imageUrl : r.imageUrl,
+  }));
 
   // Buat percakapan baru hanya setelah AI berhasil menjawab.
   if (conversationId === undefined) {
