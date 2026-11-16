@@ -5,6 +5,7 @@ import { Hono } from "hono";
 import { authRoutes } from "./routes/auth.js";
 import { chatRoutes } from "./routes/chat.js";
 import { restaurantRoutes } from "./routes/restaurants.js";
+import { serveStatic } from "@hono/node-server/serve-static";
 import type { AppEnv } from "./types.js";
 
 const app = new Hono<AppEnv>();
@@ -20,7 +21,7 @@ app.use(
 );
 
 app.get("/health", (c) => c.json({ status: "ok", service: "foodmate-api" }));
-
+app.use("/images/*", serveStatic({ root: "./public" }));
 app.route("/api/auth", authRoutes);
 app.route("/api/chat", chatRoutes);
 app.route("/api/restaurants", restaurantRoutes);
