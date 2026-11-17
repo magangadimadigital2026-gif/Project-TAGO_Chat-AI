@@ -1,44 +1,33 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../../constants/palette";
 import type { Rec } from "../../types/chat";
 import { groupMenu, rupiah } from "../../utils/format";
-import { mapsUrl } from "../../utils/maps";
-import { notify } from "../../utils/notify";
+import { openInMaps } from "../../utils/maps";
 
-// Data yang dibutuhkan untuk menampilkan detail restoran
+// Menentukan data yang digunakan
 type Props = { rec: Rec; meta: string; visible: boolean; onClose: () => void };
 
-// Komponen untuk menampilkan detail restoran
 export function RestaurantSheet({ rec, meta, visible, onClose }: Props) {
-  // * jarak tampilan agar tidak tertutup bagian bawah layar
+  // Mengatur jarak tampilan dari bawah layar
   const insets = useSafeAreaInsets();
-  // Membuka Google Maps dengan nama dan alamat restoran
-  const openMaps = () => {
-    Linking.openURL(mapsUrl(rec.name, rec.address)).catch(() =>
-      notify("Gagal", "Google Maps tidak bisa dibuka.")
-    );
-  };
 
   return (
-    // Menampilkan detail restoran dalam bentuk lembar dari bawah
+    // Mengatur tampilan modal
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
-
-        {/* Area gelap di belakang, ketuk untuk menutup detail */}
+        {/* Menutup detail saat area luar ditekan */}
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
 
-        {/* Kotak detail restoran */}
         <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 12) + 4 }]}>
-
-          {/* Garis kecil di bagian atas lembar detail */}
+          {/* Garis kecil di bagian atas */}
           <View style={styles.handle} />
 
+          {/* Membuat halaman detail bisa digulir */}
           <ScrollView showsVerticalScrollIndicator={false}>
-
-            {/* Menampilkan foto dan nama restoran */}
             <View style={styles.head}>
+              {/* Menampilkan foto atau ikon restoran */}
               <View style={styles.thumb}>
                 {rec.imageUrl ? (
                   <Image source={{ uri: rec.imageUrl }} style={styles.img} />
@@ -47,10 +36,9 @@ export function RestaurantSheet({ rec, meta, visible, onClose }: Props) {
                 )}
               </View>
 
+              {/* Menampilkan nama dan informasi restoran */}
               <View style={{ flex: 1, gap: 4 }}>
                 <Text style={styles.name}>{rec.name}</Text>
-
-                {/* Menampilkan jarak dan waktu perjalanan */}
                 {!!meta && (
                   <View style={styles.badge}>
                     <Text style={styles.badgeText}>{meta}</Text>
@@ -62,14 +50,10 @@ export function RestaurantSheet({ rec, meta, visible, onClose }: Props) {
             {/* Menampilkan alamat restoran */}
             {!!rec.address && <Text style={styles.address}>{rec.address}</Text>}
 
-            {/* Menampilkan daftar menu berdasarkan kategorinya */}
+            {/* Menampilkan daftar menu dan harga */}
             {groupMenu(rec.menu ?? []).map((section) => (
               <View key={section.title}>
-
-                {/* Nama kategori menu */}
                 <Text style={styles.section}>{section.title}</Text>
-
-                {/* Menampilkan nama dan harga setiap menu */}
                 {section.items.map((m, i) => (
                   <View key={`${m.name}-${i}`} style={styles.row}>
                     <Text style={styles.itemName}>{m.name}</Text>
@@ -80,8 +64,8 @@ export function RestaurantSheet({ rec, meta, visible, onClose }: Props) {
             ))}
           </ScrollView>
 
-          {/* Tombol untuk membuka lokasi restoran di Google Maps */}
-          <Pressable style={styles.mapBtn} onPress={openMaps} accessibilityRole="button">
+          {/* Membuka lokasi restoran di Google Maps */}
+          <Pressable style={styles.mapBtn} onPress={() => openInMaps(rec.name, rec.address)} accessibilityRole="button">
             <Ionicons name="map-outline" size={18} color={colors.onPrimary} />
             <Text style={styles.mapText}>Buka di Google Maps</Text>
           </Pressable>
@@ -91,12 +75,12 @@ export function RestaurantSheet({ rec, meta, visible, onClose }: Props) {
   );
 }
 
-// desain dan tampilan detail restoran
+// Mengatur tampilan detail restoran
 const styles = StyleSheet.create({
-
-  // latar belakang dan posisi lembar detail
+  // Mengatur latar belakang modal
   overlay: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.overlay },
-  // ukuran dan bentuk kotak detail restoran
+
+  // Mengatur ukuran dan posisi lembar detail
   sheet: {
     maxHeight: "80%",
     backgroundColor: colors.card,
@@ -105,7 +89,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 10,
   },
-  //  tampilan garis kecil di bagian atas
+
+  // Mengatur garis kecil di bagian atas
   handle: {
     alignSelf: "center",
     width: 40,
@@ -114,9 +99,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
     marginBottom: 12,
   },
-  //  posisi foto dan informasi restoran
+
+  // Mengatur posisi foto dan informasi restoran
   head: { flexDirection: "row", alignItems: "center", gap: 12 },
-  //  ukuran dan posisi foto restoran
+
+  // Mengatur ukuran foto restoran
   thumb: {
     width: 72,
     height: 72,
@@ -126,11 +113,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
   },
-  // ukuran foto restoran
+
+  // Mengatur ukuran gambar
   img: { width: 72, height: 72 },
-  // tampilan nama restoran
+
+  // Mengatur tampilan nama restoran
   name: { fontSize: 17, fontWeight: "700", color: colors.ink },
-  // tampilan label jarak dan waktu
+
+  // Mengatur tampilan label jarak dan waktu
   badge: {
     alignSelf: "flex-start",
     backgroundColor: "#D6F5E3",
@@ -138,13 +128,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 3,
   },
-  // tulisan pada label jarak dan waktu
+
+  // Mengatur teks jarak dan waktu
   badgeText: { fontSize: 12, fontWeight: "600", color: "#0B7A3E" },
-  // tampilan alamat restoran
+
+  // Mengatur tampilan alamat restoran
   address: { fontSize: 13, lineHeight: 19, color: colors.muted, marginTop: 12 },
-  // tampilan judul kategori menu
+
+  // Mengatur tampilan judul kategori menu
   section: { fontSize: 13, fontWeight: "700", color: colors.primary, marginTop: 16, marginBottom: 4 },
-  // posisi nama dan harga menu
+
+  // Mengatur posisi nama menu dan harga
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -153,11 +147,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
-  // tampilan nama menu
+
+  // Mengatur tampilan nama menu
   itemName: { flex: 1, fontSize: 14, color: colors.ink },
-  // tampilan harga menu
+
+  // Mengatur tampilan harga menu
   price: { fontSize: 14, color: colors.ink },
-  // tampilan tombol Google Maps
+
+  // Mengatur tampilan tombol Google Maps
   mapBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -168,6 +165,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     marginTop: 14,
   },
-  // tampilan tulisan tombol Google Maps
+
+  // Mengatur teks tombol Google Maps
   mapText: { fontSize: 15, fontWeight: "700", color: colors.onPrimary },
 });
