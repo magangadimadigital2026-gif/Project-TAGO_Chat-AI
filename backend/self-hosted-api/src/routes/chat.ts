@@ -318,7 +318,16 @@ chatRoutes.post("/", authMiddleware, async (c) => {
     candidates.map((item) => item.id),
   );
   const { answer, quickReplies } = extractQuickReplies(replyText);
-  const origin = new URL(c.req.url).origin;
+  const url = new URL(c.req.url);
+  const baseFromEnv = process.env.PUBLIC_BASE_URL?.trim().replace(/\/+$/, "");
+  const proto =
+    c.req.header("x-forwarded-proto")?.split(",")[0].trim() ||
+    url.protocol.replace(":", "");
+  const host =
+    c.req.header("x-forwarded-host")?.split(",")[0].trim() ||
+    c.req.header("host") ||
+    url.host;
+  const origin = baseFromEnv || `${proto}://${host}`;
   const recommendations = (
     await attachPhotos(toRecommendations(recommendedIds))
   ).map((r) => ({
